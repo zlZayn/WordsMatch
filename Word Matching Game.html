@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词匹配 | Words Match</title>
+    <style>
+    /* ============================== 1. 基础定义 ============================== */
+    :root {
+        --theme-pink: #ff99cc;
+        --theme-blue: #42a5f5;
+        --modal-dark-bg: rgba(255, 255, 255, 0.1);
+        --page-bg: #fef8ed;
+        --card-bg: white;
+        --sidebar-list-bg: #fef8ed;
+        --text-primary: #333;
+        --text-secondary: #666;
+        --btn-text: #000;
+        --progress-fill-bg: #f1f1f1;
+        --border-color: #ccc;
+        --shadow-primary: 0 6px 12px rgba(0,0,0,0.05);
+        --shadow-secondary: 0 4px 8px rgba(0,0,0,0.02);
+        --scrollbar-track: #f1f1f1;
+        --scrollbar-thumb: #bbb;
+        --scrollbar-thumb-hover: #999;
+        --x: 0px;
+        --y: 0px;
+        --r: 0px;
+        --btn-show-def-hover: #ff6699;
+        --btn-prev-bg: #cccccc;
+        --btn-prev-hover: #999999;
+        --order-toggle-disordered-hover: var(--btn-prev-bg);
+        --list-select-btn-active-bg: var(--card-bg);
+        --list-select-btn-active-text: #333;
+    }
+
+    :root.dark {
+        --theme-pink: #d64187;
+        --btn-prev-bg: #555;
+        --btn-prev-hover: #777;
+        --order-toggle-disordered-hover: var(--btn-prev-bg);
+        --theme-blue: #2563eb;
+        --page-bg: #2d2b3a;
+        --card-bg: #3a384c;
+        --sidebar-list-bg: #2d2b3a;
+        --text-primary: #f0f0f0;
+        --text-secondary: #ddd;
+        --btn-text: white;
+        --progress-fill-bg: #4a485c;
+        --border-color: #555;
+        --shadow-primary: 0 6px 12px rgba(255,255,255,0.05);
+        --shadow-secondary: 0 4px 8px rgba(255,255,255,0.02);
+        --scrollbar-track: #4a485c;
+        --scrollbar-thumb: #666;
+        --scrollbar-thumb-hover: #888;
+        --btn-show-def-hover: #b8326d;
+        --list-select-btn-active-bg: #3a384c;
+        --list-select-btn-active-text: #fff;
+    }
+
+    /* 模式切换动画 */
+    ::view-transition-old(*) {animation: none;}
+    ::view-transition-new(*) {animation: clip 0.4s cubic-bezier(1,0,0,1);}
+    ::view-transition-old(root) {z-index: 1;}
+    ::view-transition-new(root) {z-index: 9999;}
+    html.dark::view-transition-old(*) {animation: none;}
+    html.dark::view-transition-new(*) {animation: clip 0.4s cubic-bezier(1,0,0,1);}
+    @keyframes clip {
+        from {clip-path: circle(0% at var(--x) var(--y));}
+        to {clip-path: circle(var(--r) at var(--x) var(--y));}
+    }
+
+    /* ============================== 2. 全局样式 ============================== */
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: var(--page-bg);
+        font-size: 1.2em;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        color: var(--text-primary);
+        position: relative;
+    }
+
+    .search {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        border: 3px solid var(--theme-pink);
+        border-radius: 15px;
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 16px;
+        padding: 8px 15px;
+        outline: none;
+        width: 200px;
+        font-weight: bold;
+        text-align: center;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+        display: none;
+        margin: 0;
+    }
+    .search::placeholder {
+        color: var(--text-primary);
+        font-style: italic;
+    }
+    .search-match-char {
+        color: var(--theme-pink);
+        font-weight: bold;
+        transition: all 0.2s ease;
+    }
+    .search-no-match {
+        background-color: var(--page-bg) !important;
+        transition: background-color 0.2s ease;
+    }
+
+    .status-top, .status-bottom {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--text-secondary);
+        font-weight: bold;
+        font-size: 0.6rem;
+        z-index: 5;
+        padding: 0;
+        margin: 0;
+    }
+    .status-top {top: 2px;}
+    .status-bottom {bottom: 2px;}
+
+    /* ============================== 3. 按钮样式 ============================== */
+    .btn {
+        padding: clamp(8px,2vw,8px) clamp(12px,3vw,18px);
+        font-size: 16px;
+        border: none;
+        border-radius: 15px;
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        line-height: 1.2;
+        margin: 0;
+    }
+    .btn:hover {
+        transform: scale(1.05);
+    }
+    .btn.active {
+        background-color: var(--theme-pink);
+        transition: all 0.2s ease;
+    }
+
+    .btn-float {
+        position: fixed;
+        width: 120px;
+        z-index: 20;
+    }
+    .btn-float:hover {
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-menu {top:20px;left:20px;display:none;}
+    .btn-theme {top:20px;right:20px;}
+    .btn-list {bottom:20px;right:20px;}
+    .btn-focus {top:20px;left:50%;transform: translateX(-50%);}
+    .btn-focus:hover {transform: translateX(-50%) scale(1.05);}
+
+    .btn-nav {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 60px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background-color: var(--sidebar-list-bg);
+        color: var(--text-secondary);
+    }
+    .list-select-btn:hover, .list-select-btn.active {
+        font-size: clamp(18px, 3vw, 22px);
+        background-color: var(--list-select-btn-active-bg);
+        color: var(--list-select-btn-active-text);
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-order:hover {
+        font-size: clamp(18px, 3vw, 22px);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-order[data-order="ordered"]:hover {
+        background-color: #b7e4c7;
+    }
+    :root.dark .btn-order[data-order="ordered"]:hover {
+        background-color: #166534;
+    }
+    .btn-order.active {
+        font-size: clamp(18px, 3vw, 22px);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-order[data-order="ordered"].active {background-color: #b7e4c7;}
+    :root.dark .btn-order[data-order="ordered"].active {background-color: #166534;}
+    .btn-order[data-order="disordered"]:hover {
+        background-color: var(--order-toggle-disordered-hover);
+    }
+    .btn-order[data-order="disordered"].active {
+        background-color: var(--order-toggle-disordered-hover);
+    }
+
+    /* ============================== 4. 布局样式 ============================== */
+    .sidebar {
+        width: 250px;
+        background-color: var(--sidebar-list-bg);
+        padding: 20px 0;
+        box-shadow: var(--shadow-primary);
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: inherit;
+        transition: transform 0.2s ease;
+        overflow-y: auto;
+        opacity: 0.95;
+        transform: translateX(-100%);
+    }
+    
+    @media (min-width: 1301px) {
+        .sidebar {
+            transform: translateX(0);
+        }
+    }
+    .sidebar::-webkit-scrollbar {width: 12px;}
+    .sidebar::-webkit-scrollbar-track {
+        background: var(--progress-fill-bg);
+        border-radius: 6px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+        background: var(--theme-pink);
+        border-radius: 6px;
+    }
+    .sidebar::-webkit-scrollbar-thumb:hover {background: var(--btn-show-def-hover);}
+    
+    .sidebar h3, .list-buttons, .order-buttons, .sidebar-footer {padding: 0 20px;}
+    .sidebar h3 {
+        color: var(--text-primary);
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+        text-align: center;
+    }
+    .list-buttons, .order-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-sizing: border-box;
+    }
+    .order-buttons {margin-top: auto;}
+    .sidebar-footer {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid var(--border-color);
+        font-size: 0;
+        height: 1px;
+    }
+
+    .main {
+        position: fixed;
+        top: 80px;
+        bottom: 80px;
+        left: 320px;
+        right: 80px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 5;
+        transition: all 0.2s ease;
+        overflow: hidden;
+    }
+    .card {
+        width: 100%;
+        max-width: 1200px;
+        height: 100%;
+        background-color: var(--page-bg);
+        border-radius: 15px;
+        padding: 30px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        gap: 20px;
+    }
+    .progress {
+        flex-grow: 1;
+        height: 10px;
+        background-color: var(--progress-fill-bg);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%;
+        background-color: var(--theme-pink);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+    body.focus-mode .progress {
+        width: 100%;
+        height: 10px;
+        background-color: var(--progress-fill-bg);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    body.focus-mode .progress-fill {
+        height: 100%;
+        background-color: var(--theme-pink);
+        width: 0%;
+        transition: width 0.2s ease;
+    }
+    .game-status {
+        font-size: clamp(14px, 2vw, 18px);
+        color: var(--text-secondary);
+        font-weight: 500;
+        min-width: 150px;
+        text-align: center;
+    }
+
+    /* 配对游戏区域 */
+    .matching-area {
+        display: flex;
+        flex: 1;
+        gap: 20px;
+        padding: 15px 0 0;
+        overflow-y: hidden;
+        overflow-x: hidden;
+    }
+
+    .word-column,
+    .definition-column {
+        flex: 1;
+        display: grid;
+        grid-template-rows: repeat(4, 1fr);
+        gap: 12px;
+        padding: 0 5px;
+    }
+
+    .word-card,
+    .definition-card {
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 15px 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        border: 2px solid transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+        overflow: hidden;
+        font-size: clamp(1rem,4vw,1.8rem);
+        word-break: break-word;
+        white-space: normal;
+        max-height: 100%;
+        box-shadow: none;
+    }
+    body.focus-mode .word-card {font-size: clamp(1.4rem,4vw,3rem);}
+    body.focus-mode .definition-card {font-size: clamp(1rem,4vw,2rem);}
+
+    .word-card:hover,
+    .definition-card:hover {
+        transform: translateY(-5px);
+        background-color: var(--theme-pink);
+    }
+    
+    .word-card.selected:hover,
+    .definition-card.selected:hover {
+        transform: translateY(-5px);
+        background-color: var(--theme-pink);
+        opacity: 0.6;
+    }
+    .word-card.selected,
+    .definition-card.selected {
+        transform: translateY(-2px);
+        background-color: var(--theme-pink);
+    }
+    
+    .word-card.mismatch,
+    .definition-card.mismatch {
+        animation: shake 0.1s;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        50% { transform: translateX(2px); }
+        75% { transform: translateX(-1px); }
+        }
+
+    .word-card.matched,
+    .definition-card.matched {
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: match-success 0.4s ease forwards;
+    }
+    @keyframes match-success {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 1; }
+        100% { transform: scale(0.3); opacity: 0; }
+    }
+    
+    .word-column.fade-out,
+    .definition-column.fade-out {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .word-column.fade-in,
+    .definition-column.fade-in {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    /* 游戏完成提示 */
+    .game-complete {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: var(--card-bg);
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: var(--shadow-primary);
+        text-align: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        z-index: 100;
+    }
+    .game-complete.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+    .game-complete h2 {
+        color: var(--theme-pink);
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+        margin-bottom: 20px;
+    }
+    .game-complete p {
+        color: var(--text-secondary);
+        font-size: clamp(1rem, 2vw, 1.2rem);
+        margin-bottom: 30px;
+    }
+
+    .game-actions {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    /* ============================== 5. 专注模式 ============================== */
+    body.focus-mode .sidebar, 
+    body.focus-mode .btn-menu, 
+    body.focus-mode .btn-theme, 
+    body.focus-mode .btn-list {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .sidebar-container {
+        position: fixed;
+        transition: transform 0.2s ease;
+        backface-visibility: hidden;
+        will-change: transform;
+        z-index: 100;
+    }
+    body.focus-mode .sidebar-container {
+        transform: translateX(-100%);
+    }
+    body.focus-mode .main {
+        top: 40px;
+        bottom: 40px;
+        left: 5px;
+        right: 5px;
+    }
+    body.focus-mode .card {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================== 6. 单词列表弹窗 ============================== */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.1);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .modal.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    :root.dark .modal {background-color: var(--modal-dark-bg);}
+    .modal-content {
+        background-color: var(--page-bg);
+        border-radius: 15px;
+        box-shadow: var(--shadow-primary);
+        width: 80%;
+        max-width: 1200px;
+        position: fixed;
+        top: 10%;
+        bottom: 10%;
+        padding: 2%;
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2%;
+        padding-bottom: 1.5%;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .modal-title {
+        font-size: clamp(20px, 3vw, 28px);
+        font-weight: bold;
+        color: var(--text-primary);
+        margin: 0;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .close-list-modal-btn {
+        background: none;
+        border: none;
+        font-size: clamp(24px, 4vw, 30px);
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.2s ease;
+        margin-left: auto;
+    }
+    .close-list-modal-btn:hover {color: var(--text-primary);}
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1%;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5%;
+        align-content: start;
+    }
+    .modal-body::-webkit-scrollbar {width: 12px;}
+    .modal-body::-webkit-scrollbar-track {
+        background: var(--progress-fill-bg);
+        border-radius: 6px;
+    }
+    .modal-body::-webkit-scrollbar-thumb {
+        background: var(--theme-pink);
+        border-radius: 6px;
+    }
+    .modal-body::-webkit-scrollbar-thumb:hover {background: var(--btn-show-def-hover);}
+    
+    .modal-item {
+        background-color: var(--card-bg);
+        border-radius: 15px;
+        padding: 1.5%;
+        transition: all 0.2s ease;
+        cursor: default;
+    }
+    .modal-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-primary);
+    }
+    .item-word {
+        font-size: 20px;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+    .item-definition {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+    /* ============================== 7. 响应式适配 ============================== */
+    @media (max-width: 1300px) {
+        .btn-menu {display: flex;}
+        .sidebar {
+            width: 280px;
+        }
+        .sidebar.mobile-open {transform: translateX(0);}
+        .main {
+            top: 70px;
+            bottom: 70px;
+            left: 20px;
+            right: 20px;
+        }
+        .sidebar.mobile-open ~ .main {left: 300px;}
+        .modal-content {
+            width: 80%;
+            max-width: 1200px;
+            padding: 30px;
+            top: 10%;
+            bottom: 10%;
+        }
+        .modal-body {
+            padding: 15px 20px;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        }
+    }
+    @media (max-width: 1024px) {
+        .modal-content {
+            width: 85%;
+            max-width: none;
+            padding: 25px;
+            top: 10%;
+            bottom: 10%;
+        }
+        .modal-body {
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 12px;
+        }
+    }
+    @media (max-width: 840px) {
+        .word-column, .definition-column {
+            gap: 8px;
+        }
+        .word-card, .definition-card {
+            padding: 10px 8px;
+            font-size: clamp(1rem, 3vw, 1.2rem);
+        }
+        .matching-area {
+            padding: 10px 0 25px;
+            gap: 10px;
+        }
+        .modal-body {grid-template-columns: 1fr;}
+        .modal-content {
+            width: 90%;
+            padding: 1.5%;
+            top: 80px;
+            bottom: 60px;
+        }
+    }
+    @media (max-width: 480px) {
+        .modal-content {
+            width: 95%;
+            padding: 1.2%;
+            top: 80px;
+            bottom: 60px;
+        }
+        .modal-title {
+            font-size: 20px;
+        }
+        .btn-float {
+            width: 80px;
+            padding: 6px 12px;
+            font-size: 10px;
+        }
+    }
+    @media (hover: none) and (pointer: coarse) {
+        .btn {min-height: 44px;}
+        .list-select-btn:hover, .btn-order:hover {
+            font-size: inherit;
+            background-color: var(--sidebar-list-bg);
+            color: var(--text-secondary);
+        }
+        .list-select-btn.active:hover, .btn-order.active:hover {
+            font-size: clamp(18px, 3vw, 22px);
+        }
+    }
+    </style>
+</head>
+<body>
+    <!-- 移动端侧边栏按钮 -->
+    <button class="btn btn-float btn-menu" id="btn-menu">Select</button>
+    <!-- 主题切换按钮 -->
+    <button class="btn btn-float btn-theme" id="btn-theme">Dark</button>
+    <!-- 专注模式按钮 -->
+    <button class="btn btn-float btn-focus" id="btn-focus">Focus</button>
+    <!-- 单词列表弹窗按钮 -->
+    <button class="btn btn-float btn-list" id="btn-list">Word List</button>
+    
+    <!-- 单词列表弹窗 -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                        <span>${activeList}</span>
+                        <span>${wordLists[activeList].length} words</span>
+                    </div>
+                </h2>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="sidebar-footer">
+                <div id="modal-footer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 全局搜索框 -->
+    <input type="text" class="search" id="search" placeholder="">
+    
+    <!-- 顶部状态显示 -->
+    <div class="status-top" id="status-top"></div>
+    
+    <!-- 左侧列表选择器 -->
+    <div class="sidebar-container">
+        <div class="sidebar" id="sidebar">
+            <h3>Select Word List</h3>
+            <div class="list-buttons">
+            <button class="btn btn-nav list-select-btn" data-list="ES_A1 List">ES_A1 List</button>
+            </div>
+            <div class="order-buttons">
+                <button class="btn btn-nav btn-order active" data-order="disordered">Disordered</button>
+                <button class="btn btn-nav btn-order" data-order="ordered">Ordered</button>
+            </div>
+            <div class="sidebar-footer">
+                <div id="sidebar-info"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 中央卡片容器 -->
+    <div class="main">
+        <div class="card">
+            <div class="card-header">
+                <div class="progress">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="game-status" id="game-status">Matched: 0 / 0</div>
+            </div>
+            
+            <!-- 游戏完成提示 -->
+            <div class="game-complete" id="game-complete">
+                <h2>Congratulations!</h2>
+                <p>You have completed all matches!</p>
+            </div>
+            
+            <!-- 配对游戏区域 -->
+            <div class="matching-area" id="matching-area">
+                <div class="word-column" id="word-column"></div>
+                <div class="definition-column" id="definition-column"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部状态显示 -->
+    <div class="status-bottom" id="status-bottom"></div>
+
+    <script>
+        // 单词列表数据
+        const wordLists = {"ES_A1 List": [{"word": "pelo", "definition": "m.头发,毛发；", "meanings": ["m.头发,毛发"], "pos_meanings": [{"pos": "unknown", "meaning": "m.头发,毛发"}]}, {"word": "ojo", "definition": "m.眼睛；", "meanings": ["m.眼睛"], "pos_meanings": [{"pos": "unknown", "meaning": "m.眼睛"}]}, {"word": "nariz", "definition": "f.鼻子；", "meanings": ["f.鼻子"], "pos_meanings": [{"pos": "unknown", "meaning": "f.鼻子"}]}, {"word": "alto", "definition": "adj.高的；", "meanings": ["高的"], "pos_meanings": [{"pos": "adj.", "meaning": "高的"}]}, {"word": "bajo", "definition": "adj.矮的,低的；", "meanings": ["矮的,低的"], "pos_meanings": [{"pos": "adj.", "meaning": "矮的,低的"}]}, {"word": "gordo", "definition": "adj.胖的；", "meanings": ["胖的"], "pos_meanings": [{"pos": "adj.", "meaning": "胖的"}]}, {"word": "delgado", "definition": "adj.瘦的；", "meanings": ["瘦的"], "pos_meanings": [{"pos": "adj.", "meaning": "瘦的"}]}, {"word": "guapo", "definition": "adj.漂亮的；m.f.帅哥,美女；", "meanings": ["漂亮的", "m.f.帅哥,美女"], "pos_meanings": [{"pos": "adj.", "meaning": "漂亮的"}, {"pos": "unknown", "meaning": "m.f.帅哥,美女"}]}, {"word": "feo", "definition": "adj.丑的；", "meanings": ["丑的"], "pos_meanings": [{"pos": "adj.", "meaning": "丑的"}]}, {"word": "pelo rubio", "definition": "phrase.金头发；", "meanings": ["phrase.金头发"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.金头发"}]}, {"word": "tener barba", "definition": "phrase.有胡须；", "meanings": ["phrase.有胡须"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.有胡须"}]}, {"word": "tener bigote", "definition": "phrase.有髭（上唇至人中部位的胡子）；", "meanings": ["phrase.有髭（上唇至人中部位的胡子）"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.有髭（上唇至人中部位的胡子）"}]}, {"word": "llevar gafas", "definition": "phrase.戴眼镜；", "meanings": ["phrase.戴眼镜"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.戴眼镜"}]}, {"word": "tener los ojos grandes", "definition": "phrase.有大眼睛；", "meanings": ["phrase.有大眼睛"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.有大眼睛"}]}, {"word": "tener los ojos pequeños", "definition": "phrase.有小眼睛；", "meanings": ["phrase.有小眼睛"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.有小眼睛"}]}, {"word": "levantarse", "definition": "prnl.起床,起身；", "meanings": ["prnl.起床,起身"], "pos_meanings": [{"pos": "unknown", "meaning": "prnl.起床,起身"}]}, {"word": "simpático", "definition": "adj.和蔼可亲的；", "meanings": ["和蔼可亲的"], "pos_meanings": [{"pos": "adj.", "meaning": "和蔼可亲的"}]}, {"word": "antipático", "definition": "adj.令人厌恶的；", "meanings": ["令人厌恶的"], "pos_meanings": [{"pos": "adj.", "meaning": "令人厌恶的"}]}, {"word": "inteligente", "definition": "adj.聪明的；", "meanings": ["聪明的"], "pos_meanings": [{"pos": "adj.", "meaning": "聪明的"}]}, {"word": "trabajador", "definition": "adj.勤劳的；", "meanings": ["勤劳的"], "pos_meanings": [{"pos": "adj.", "meaning": "勤劳的"}]}, {"word": "alegre", "definition": "adj.高兴的,愉悦的,开朗的；", "meanings": ["高兴的,愉悦的,开朗的"], "pos_meanings": [{"pos": "adj.", "meaning": "高兴的,愉悦的,开朗的"}]}, {"word": "serio", "definition": "adj.严肃的；", "meanings": ["严肃的"], "pos_meanings": [{"pos": "adj.", "meaning": "严肃的"}]}, {"word": "tímido", "definition": "adj.害羞的,胆怯的；", "meanings": ["害羞的,胆怯的"], "pos_meanings": [{"pos": "adj.", "meaning": "害羞的,胆怯的"}]}, {"word": "sociable", "definition": "adj.爱社交的；", "meanings": ["爱社交的"], "pos_meanings": [{"pos": "adj.", "meaning": "爱社交的"}]}, {"word": "nombre", "definition": "m.名字；", "meanings": ["m.名字"], "pos_meanings": [{"pos": "unknown", "meaning": "m.名字"}]}, {"word": "primer apellido", "definition": "phrase.第一姓氏；", "meanings": ["phrase.第一姓氏"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.第一姓氏"}]}, {"word": "segundo apellido", "definition": "phrase.第二姓氏；", "meanings": ["phrase.第二姓氏"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.第二姓氏"}]}, {"word": "señor", "definition": "m.先生；", "meanings": ["m.先生"], "pos_meanings": [{"pos": "unknown", "meaning": "m.先生"}]}, {"word": "señora", "definition": "f.女士；", "meanings": ["f.女士"], "pos_meanings": [{"pos": "unknown", "meaning": "f.女士"}]}, {"word": "firmar", "definition": "tr.签字；", "meanings": ["tr.签字"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.签字"}]}, {"word": "llamarse", "definition": "prnl.叫…名字；", "meanings": ["prnl.叫…名字"], "pos_meanings": [{"pos": "unknown", "meaning": "prnl.叫…名字"}]}, {"word": "dirección", "definition": "f.地址；", "meanings": ["f.地址"], "pos_meanings": [{"pos": "unknown", "meaning": "f.地址"}]}, {"word": "correo electrónico", "definition": "phrase.电子邮件；", "meanings": ["phrase.电子邮件"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.电子邮件"}]}, {"word": "calle", "definition": "f.街；", "meanings": ["f.街"], "pos_meanings": [{"pos": "unknown", "meaning": "f.街"}]}, {"word": "avenida", "definition": "f.大道；", "meanings": ["f.大道"], "pos_meanings": [{"pos": "unknown", "meaning": "f.大道"}]}, {"word": "paseo", "definition": "m.步行道,散步；", "meanings": ["m.步行道,散步"], "pos_meanings": [{"pos": "unknown", "meaning": "m.步行道,散步"}]}, {"word": "número", "definition": "m.数字,号码；", "meanings": ["m.数字,号码"], "pos_meanings": [{"pos": "unknown", "meaning": "m.数字,号码"}]}, {"word": "código postal", "definition": "phrase.邮政编码；", "meanings": ["phrase.邮政编码"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.邮政编码"}]}, {"word": "país", "definition": "m.国家；", "meanings": ["m.国家"], "pos_meanings": [{"pos": "unknown", "meaning": "m.国家"}]}, {"word": "ciudad", "definition": "f.城市；", "meanings": ["f.城市"], "pos_meanings": [{"pos": "unknown", "meaning": "f.城市"}]}, {"word": "pueblo", "definition": "m.村子；", "meanings": ["m.村子"], "pos_meanings": [{"pos": "unknown", "meaning": "m.村子"}]}, {"word": "vivir", "definition": "intr.生活,生存；", "meanings": ["intr.生活,生存"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.生活,生存"}]}, {"word": "número de teléfono", "definition": "phrase.电话号码；", "meanings": ["phrase.电话号码"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.电话号码"}]}, {"word": "móvil", "definition": "m.手机；", "meanings": ["m.手机"], "pos_meanings": [{"pos": "unknown", "meaning": "m.手机"}]}, {"word": "lugar de nacimiento", "definition": "phrase.出生地；", "meanings": ["phrase.出生地"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.出生地"}]}, {"word": "fecha de nacimiento", "definition": "phrase.出生日期；", "meanings": ["phrase.出生日期"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.出生日期"}]}, {"word": "nacionalidad", "definition": "f.国籍；", "meanings": ["f.国籍"], "pos_meanings": [{"pos": "unknown", "meaning": "f.国籍"}]}, {"word": "extranjero", "definition": "adj.外国的；m.f.外国人；m.外国；", "meanings": ["外国的", "m.f.外国人", "m.外国"], "pos_meanings": [{"pos": "adj.", "meaning": "外国的"}, {"pos": "unknown", "meaning": "m.f.外国人"}, {"pos": "unknown", "meaning": "m.外国"}]}, {"word": "español", "definition": "adj.西班牙的；m.f.西班牙人；m.西班牙语；", "meanings": ["西班牙的", "m.f.西班牙人", "m.西班牙语"], "pos_meanings": [{"pos": "adj.", "meaning": "西班牙的"}, {"pos": "unknown", "meaning": "m.f.西班牙人"}, {"pos": "unknown", "meaning": "m.西班牙语"}]}, {"word": "alemán", "definition": "adj.德国的；m.f.德国人；m.德语；", "meanings": ["德国的", "m.f.德国人", "m.德语"], "pos_meanings": [{"pos": "adj.", "meaning": "德国的"}, {"pos": "unknown", "meaning": "m.f.德国人"}, {"pos": "unknown", "meaning": "m.德语"}]}, {"word": "mexicano", "definition": "adj.墨西哥的；m.f.墨西哥人；", "meanings": ["墨西哥的", "m.f.墨西哥人"], "pos_meanings": [{"pos": "adj.", "meaning": "墨西哥的"}, {"pos": "unknown", "meaning": "m.f.墨西哥人"}]}, {"word": "japonés", "definition": "adj.日本的；m.f.日本人；m.日语；", "meanings": ["日本的", "m.f.日本人", "m.日语"], "pos_meanings": [{"pos": "adj.", "meaning": "日本的"}, {"pos": "unknown", "meaning": "m.f.日本人"}, {"pos": "unknown", "meaning": "m.日语"}]}, {"word": "ser de Laos", "definition": "phrase.是老挝人；", "meanings": ["phrase.是老挝人"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.是老挝人"}]}, {"word": "edad", "definition": "f.年龄；", "meanings": ["f.年龄"], "pos_meanings": [{"pos": "unknown", "meaning": "f.年龄"}]}, {"word": "niño", "definition": "m.f.儿童,孩子；", "meanings": ["m.f.儿童,孩子"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.儿童,孩子"}]}, {"word": "chico", "definition": "m.f.小孩；adj.小的,年幼的；", "meanings": ["m.f.小孩", "小的,年幼的"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.小孩"}, {"pos": "adj.", "meaning": "小的,年幼的"}]}, {"word": "joven", "definition": "adj.年轻的；m.f.年轻人；", "meanings": ["年轻的", "m.f.年轻人"], "pos_meanings": [{"pos": "adj.", "meaning": "年轻的"}, {"pos": "unknown", "meaning": "m.f.年轻人"}]}, {"word": "viejo", "definition": "adj.老的,旧的；m.f.老人；", "meanings": ["老的,旧的", "m.f.老人"], "pos_meanings": [{"pos": "adj.", "meaning": "老的,旧的"}, {"pos": "unknown", "meaning": "m.f.老人"}]}, {"word": "tener 18 años", "definition": "phrase.18岁；", "meanings": ["phrase.18岁"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.18岁"}]}, {"word": "hombre", "definition": "m.男人；", "meanings": ["m.男人"], "pos_meanings": [{"pos": "unknown", "meaning": "m.男人"}]}, {"word": "mujer", "definition": "f.女人；", "meanings": ["f.女人"], "pos_meanings": [{"pos": "unknown", "meaning": "f.女人"}]}, {"word": "estado civil", "definition": "phrase.婚姻状况；", "meanings": ["phrase.婚姻状况"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.婚姻状况"}]}, {"word": "soltero", "definition": "adj.单身的；", "meanings": ["单身的"], "pos_meanings": [{"pos": "adj.", "meaning": "单身的"}]}, {"word": "casado", "definition": "adj.已婚的；", "meanings": ["已婚的"], "pos_meanings": [{"pos": "adj.", "meaning": "已婚的"}]}, {"word": "viudo", "definition": "adj.丧偶的；", "meanings": ["丧偶的"], "pos_meanings": [{"pos": "adj.", "meaning": "丧偶的"}]}, {"word": "separado", "definition": "adj.分开的；", "meanings": ["分开的"], "pos_meanings": [{"pos": "adj.", "meaning": "分开的"}]}, {"word": "divorciado", "definition": "adj.离婚的；", "meanings": ["离婚的"], "pos_meanings": [{"pos": "adj.", "meaning": "离婚的"}]}, {"word": "llave", "definition": "f.钥匙；", "meanings": ["f.钥匙"], "pos_meanings": [{"pos": "unknown", "meaning": "f.钥匙"}]}, {"word": "cartera", "definition": "f.钱包；", "meanings": ["f.钱包"], "pos_meanings": [{"pos": "unknown", "meaning": "f.钱包"}]}, {"word": "reloj", "definition": "m.手表,时钟；", "meanings": ["m.手表,时钟"], "pos_meanings": [{"pos": "unknown", "meaning": "m.手表,时钟"}]}, {"word": "gafas", "definition": "f.\\[pl.]眼镜；", "meanings": ["f.\\[pl.]眼镜"], "pos_meanings": [{"pos": "unknown", "meaning": "f.\\[pl.]眼镜"}]}, {"word": "familia", "definition": "f.家庭,家人；", "meanings": ["f.家庭,家人"], "pos_meanings": [{"pos": "unknown", "meaning": "f.家庭,家人"}]}, {"word": "padres", "definition": "m.\\[pl.]父母；", "meanings": ["m.\\[pl.]父母"], "pos_meanings": [{"pos": "unknown", "meaning": "m.\\[pl.]父母"}]}, {"word": "padre", "definition": "m.父亲；", "meanings": ["m.父亲"], "pos_meanings": [{"pos": "unknown", "meaning": "m.父亲"}]}, {"word": "madre", "definition": "f.母亲；", "meanings": ["f.母亲"], "pos_meanings": [{"pos": "unknown", "meaning": "f.母亲"}]}, {"word": "hijo", "definition": "m.f.子,女；", "meanings": ["m.f.子,女"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.子,女"}]}, {"word": "hermano", "definition": "m.f.兄弟,姐妹；", "meanings": ["m.f.兄弟,姐妹"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.兄弟,姐妹"}]}, {"word": "tío", "definition": "m.f.伯父,叔父,姑父,舅父,姨父；伯母,婶母,姑母,舅母,姨母；", "meanings": ["m.f.伯父,叔父,姑父,舅父,姨父", "伯母,婶母,姑母,舅母,姨母"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.伯父,叔父,姑父,舅父,姨父"}, {"pos": "unknown", "meaning": "伯母,婶母,姑母,舅母,姨母"}]}, {"word": "sobrino", "definition": "m.f.侄子,外甥,侄女,外甥女；", "meanings": ["m.f.侄子,外甥,侄女,外甥女"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.侄子,外甥,侄女,外甥女"}]}, {"word": "abuelo", "definition": "m.f.爷爷,奶奶,姥爷,姥姥；", "meanings": ["m.f.爷爷,奶奶,姥爷,姥姥"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.爷爷,奶奶,姥爷,姥姥"}]}, {"word": "nieto", "definition": "m.f.孙子,孙女,外孙,外孙女；", "meanings": ["m.f.孙子,孙女,外孙,外孙女"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.孙子,孙女,外孙,外孙女"}]}, {"word": "primo", "definition": "m.f.表兄弟,表姐妹；", "meanings": ["m.f.表兄弟,表姐妹"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.表兄弟,表姐妹"}]}, {"word": "pareja", "definition": "f.伴侣；", "meanings": ["f.伴侣"], "pos_meanings": [{"pos": "unknown", "meaning": "f.伴侣"}]}, {"word": "novio", "definition": "m.f.男朋友,女朋友；", "meanings": ["m.f.男朋友,女朋友"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.男朋友,女朋友"}]}, {"word": "amigo", "definition": "m.f.朋友；", "meanings": ["m.f.朋友"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.朋友"}]}, {"word": "jefe", "definition": "m.f.老板,首领；", "meanings": ["m.f.老板,首领"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.老板,首领"}]}, {"word": "fiesta", "definition": "f.聚会；", "meanings": ["f.聚会"], "pos_meanings": [{"pos": "unknown", "meaning": "f.聚会"}]}, {"word": "desayuno", "definition": "m.早饭；", "meanings": ["m.早饭"], "pos_meanings": [{"pos": "unknown", "meaning": "m.早饭"}]}, {"word": "comida", "definition": "f.午饭,食物；", "meanings": ["f.午饭,食物"], "pos_meanings": [{"pos": "unknown", "meaning": "f.午饭,食物"}]}, {"word": "merienda", "definition": "f.午后小吃；", "meanings": ["f.午后小吃"], "pos_meanings": [{"pos": "unknown", "meaning": "f.午后小吃"}]}, {"word": "cena", "definition": "f.晚饭；", "meanings": ["f.晚饭"], "pos_meanings": [{"pos": "unknown", "meaning": "f.晚饭"}]}, {"word": "desayunar", "definition": "intr.吃早饭；tr.吃…作为早饭；", "meanings": ["intr.吃早饭", "tr.吃…作为早饭"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.吃早饭"}, {"pos": "unknown", "meaning": "tr.吃…作为早饭"}]}, {"word": "comer", "definition": "tr.-intr.吃饭,吃午饭；", "meanings": ["tr.-intr.吃饭,吃午饭"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.-intr.吃饭,吃午饭"}]}, {"word": "merendar", "definition": "intr.吃午后点心；tr.吃…作为午后点心；", "meanings": ["intr.吃午后点心", "tr.吃…作为午后点心"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.吃午后点心"}, {"pos": "unknown", "meaning": "tr.吃…作为午后点心"}]}, {"word": "cenar", "definition": "tr.-intr.吃晚饭；", "meanings": ["tr.-intr.吃晚饭"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.-intr.吃晚饭"}]}, {"word": "agua", "definition": "f.水；", "meanings": ["f.水"], "pos_meanings": [{"pos": "unknown", "meaning": "f.水"}]}, {"word": "agua mineral", "definition": "phrase.矿泉水；", "meanings": ["phrase.矿泉水"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.矿泉水"}]}, {"word": "leche", "definition": "f.牛奶；", "meanings": ["f.牛奶"], "pos_meanings": [{"pos": "unknown", "meaning": "f.牛奶"}]}, {"word": "té", "definition": "m.茶；", "meanings": ["m.茶"], "pos_meanings": [{"pos": "unknown", "meaning": "m.茶"}]}, {"word": "café", "definition": "m.咖啡；", "meanings": ["m.咖啡"], "pos_meanings": [{"pos": "unknown", "meaning": "m.咖啡"}]}, {"word": "café solo", "definition": "phrase.纯咖啡；", "meanings": ["phrase.纯咖啡"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.纯咖啡"}]}, {"word": "café con leche", "definition": "phrase.牛奶咖啡；", "meanings": ["phrase.牛奶咖啡"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.牛奶咖啡"}]}, {"word": "café cortado", "definition": "phrase.牛奶咖啡（多咖少奶）；", "meanings": ["phrase.牛奶咖啡（多咖少奶）"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.牛奶咖啡（多咖少奶）"}]}, {"word": "cerveza", "definition": "f.啤酒；", "meanings": ["f.啤酒"], "pos_meanings": [{"pos": "unknown", "meaning": "f.啤酒"}]}, {"word": "vino blanco", "definition": "phrase.白葡萄酒；", "meanings": ["phrase.白葡萄酒"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.白葡萄酒"}]}, {"word": "vino tinto", "definition": "phrase.红葡萄酒；", "meanings": ["phrase.红葡萄酒"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.红葡萄酒"}]}, {"word": "beber", "definition": "intr.-tr.喝；", "meanings": ["intr.-tr.喝"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.-tr.喝"}]}, {"word": "carne", "definition": "f.肉；", "meanings": ["f.肉"], "pos_meanings": [{"pos": "unknown", "meaning": "f.肉"}]}, {"word": "pescado", "definition": "m.鱼；", "meanings": ["m.鱼"], "pos_meanings": [{"pos": "unknown", "meaning": "m.鱼"}]}, {"word": "fruta", "definition": "f.水果；", "meanings": ["f.水果"], "pos_meanings": [{"pos": "unknown", "meaning": "f.水果"}]}, {"word": "verdura", "definition": "f.蔬菜；", "meanings": ["f.蔬菜"], "pos_meanings": [{"pos": "unknown", "meaning": "f.蔬菜"}]}, {"word": "huevo", "definition": "m.鸡蛋；", "meanings": ["m.鸡蛋"], "pos_meanings": [{"pos": "unknown", "meaning": "m.鸡蛋"}]}, {"word": "pan", "definition": "m.面包；", "meanings": ["m.面包"], "pos_meanings": [{"pos": "unknown", "meaning": "m.面包"}]}, {"word": "bocadillo", "definition": "m.西班牙三明治；", "meanings": ["m.西班牙三明治"], "pos_meanings": [{"pos": "unknown", "meaning": "m.西班牙三明治"}]}, {"word": "sándwich", "definition": "m.三明治；", "meanings": ["m.三明治"], "pos_meanings": [{"pos": "unknown", "meaning": "m.三明治"}]}, {"word": "hamburguesa", "definition": "f.汉堡包；", "meanings": ["f.汉堡包"], "pos_meanings": [{"pos": "unknown", "meaning": "f.汉堡包"}]}, {"word": "primer plato", "definition": "phrase.第一道菜；", "meanings": ["phrase.第一道菜"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.第一道菜"}]}, {"word": "segundo plato", "definition": "phrase.第二道菜；", "meanings": ["phrase.第二道菜"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.第二道菜"}]}, {"word": "plato", "definition": "m.菜,盘子；", "meanings": ["m.菜,盘子"], "pos_meanings": [{"pos": "unknown", "meaning": "m.菜,盘子"}]}, {"word": "postre", "definition": "m.甜品；", "meanings": ["m.甜品"], "pos_meanings": [{"pos": "unknown", "meaning": "m.甜品"}]}, {"word": "sopa", "definition": "f.汤；", "meanings": ["f.汤"], "pos_meanings": [{"pos": "unknown", "meaning": "f.汤"}]}, {"word": "ensalada", "definition": "f.沙拉；", "meanings": ["f.沙拉"], "pos_meanings": [{"pos": "unknown", "meaning": "f.沙拉"}]}, {"word": "paella", "definition": "f.海鲜饭；", "meanings": ["f.海鲜饭"], "pos_meanings": [{"pos": "unknown", "meaning": "f.海鲜饭"}]}, {"word": "tortilla", "definition": "f.鸡蛋饼；\\[拉美]玉米饼；", "meanings": ["f.鸡蛋饼", "\\[拉美]玉米饼"], "pos_meanings": [{"pos": "unknown", "meaning": "f.鸡蛋饼"}, {"pos": "unknown", "meaning": "\\[拉美]玉米饼"}]}, {"word": "bar", "definition": "m.酒吧；", "meanings": ["m.酒吧"], "pos_meanings": [{"pos": "unknown", "meaning": "m.酒吧"}]}, {"word": "restaurante", "definition": "m.餐厅；", "meanings": ["m.餐厅"], "pos_meanings": [{"pos": "unknown", "meaning": "m.餐厅"}]}, {"word": "camarero", "definition": "m.f.服务员；\\[拉美]mesero；", "meanings": ["m.f.服务员", "\\[拉美]mesero"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.服务员"}, {"pos": "unknown", "meaning": "\\[拉美]mesero"}]}, {"word": "mesa", "definition": "f.桌子；", "meanings": ["f.桌子"], "pos_meanings": [{"pos": "unknown", "meaning": "f.桌子"}]}, {"word": "menú", "definition": "m.菜单；", "meanings": ["m.菜单"], "pos_meanings": [{"pos": "unknown", "meaning": "m.菜单"}]}, {"word": "cuenta", "definition": "f.账单；", "meanings": ["f.账单"], "pos_meanings": [{"pos": "unknown", "meaning": "f.账单"}]}, {"word": "instituto", "definition": "m.学院,协会；", "meanings": ["m.学院,协会"], "pos_meanings": [{"pos": "unknown", "meaning": "m.学院,协会"}]}, {"word": "universidad", "definition": "f.大学；", "meanings": ["f.大学"], "pos_meanings": [{"pos": "unknown", "meaning": "f.大学"}]}, {"word": "clase", "definition": "f.课程；", "meanings": ["f.课程"], "pos_meanings": [{"pos": "unknown", "meaning": "f.课程"}]}, {"word": "biblioteca", "definition": "f.图书馆；", "meanings": ["f.图书馆"], "pos_meanings": [{"pos": "unknown", "meaning": "f.图书馆"}]}, {"word": "profesor", "definition": "m.f.教师,教授；", "meanings": ["m.f.教师,教授"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.教师,教授"}]}, {"word": "estudiante", "definition": "m.f.学生；", "meanings": ["m.f.学生"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.学生"}]}, {"word": "director", "definition": "m.f.领导者,负责人；", "meanings": ["m.f.领导者,负责人"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.领导者,负责人"}]}, {"word": "compañero", "definition": "m.f.同伴,同学；", "meanings": ["m.f.同伴,同学"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.同伴,同学"}]}, {"word": "clase de español", "definition": "phrase.西班牙语课；", "meanings": ["phrase.西班牙语课"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.西班牙语课"}]}, {"word": "examen", "definition": "m.考试；", "meanings": ["m.考试"], "pos_meanings": [{"pos": "unknown", "meaning": "m.考试"}]}, {"word": "aprender", "definition": "tr.学习,掌握；", "meanings": ["tr.学习,掌握"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.学习,掌握"}]}, {"word": "estudiar", "definition": "tr.学；", "meanings": ["tr.学"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.学"}]}, {"word": "ir a clase", "definition": "phrase.去上课；", "meanings": ["phrase.去上课"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去上课"}]}, {"word": "hacer un examen", "definition": "phrase.参加一个考试；", "meanings": ["phrase.参加一个考试"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.参加一个考试"}]}, {"word": "ejercicio", "definition": "m.练习；", "meanings": ["m.练习"], "pos_meanings": [{"pos": "unknown", "meaning": "m.练习"}]}, {"word": "actividad", "definition": "f.活动；", "meanings": ["f.活动"], "pos_meanings": [{"pos": "unknown", "meaning": "f.活动"}]}, {"word": "lección", "definition": "f.课；", "meanings": ["f.课"], "pos_meanings": [{"pos": "unknown", "meaning": "f.课"}]}, {"word": "unidad", "definition": "f.单元；", "meanings": ["f.单元"], "pos_meanings": [{"pos": "unknown", "meaning": "f.单元"}]}, {"word": "página", "definition": "f.页；", "meanings": ["f.页"], "pos_meanings": [{"pos": "unknown", "meaning": "f.页"}]}, {"word": "pregunta", "definition": "f.问题；", "meanings": ["f.问题"], "pos_meanings": [{"pos": "unknown", "meaning": "f.问题"}]}, {"word": "en parejas", "definition": "phrase.按两人一组,成对的；", "meanings": ["phrase.按两人一组,成对的"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.按两人一组,成对的"}]}, {"word": "en grupos", "definition": "phrase.按组；", "meanings": ["phrase.按组"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.按组"}]}, {"word": "hablar", "definition": "intr.说话；tr.会讲某种语言；", "meanings": ["intr.说话", "tr.会讲某种语言"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.说话"}, {"pos": "unknown", "meaning": "tr.会讲某种语言"}]}, {"word": "leer", "definition": "tr.阅读；", "meanings": ["tr.阅读"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.阅读"}]}, {"word": "escribir", "definition": "tr.写；", "meanings": ["tr.写"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.写"}]}, {"word": "entender", "definition": "tr.明白；intr.懂得；", "meanings": ["tr.明白", "intr.懂得"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.明白"}, {"pos": "unknown", "meaning": "intr.懂得"}]}, {"word": "comprender", "definition": "tr.明白,理解；", "meanings": ["tr.明白,理解"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.明白,理解"}]}, {"word": "saber", "definition": "tr.知道；", "meanings": ["tr.知道"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.知道"}]}, {"word": "repetir", "definition": "tr.重复；", "meanings": ["tr.重复"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.重复"}]}, {"word": "practicar", "definition": "tr.练习；", "meanings": ["tr.练习"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.练习"}]}, {"word": "hacer los deberes", "definition": "phrase.写作业；", "meanings": ["phrase.写作业"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.写作业"}]}, {"word": "hacer un ejercicio", "definition": "phrase.做个练习；", "meanings": ["phrase.做个练习"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.做个练习"}]}, {"word": "internet", "definition": "m.互联网；", "meanings": ["m.互联网"], "pos_meanings": [{"pos": "unknown", "meaning": "m.互联网"}]}, {"word": "libro", "definition": "m.书；", "meanings": ["m.书"], "pos_meanings": [{"pos": "unknown", "meaning": "m.书"}]}, {"word": "diccionario", "definition": "m.字典；", "meanings": ["m.字典"], "pos_meanings": [{"pos": "unknown", "meaning": "m.字典"}]}, {"word": "papel", "definition": "m.纸；", "meanings": ["m.纸"], "pos_meanings": [{"pos": "unknown", "meaning": "m.纸"}]}, {"word": "bolígrafo", "definition": "m.圆珠笔；\\[墨西哥]lapicero；", "meanings": ["m.圆珠笔", "\\[墨西哥]lapicero"], "pos_meanings": [{"pos": "unknown", "meaning": "m.圆珠笔"}, {"pos": "unknown", "meaning": "\\[墨西哥]lapicero"}]}, {"word": "lápiz", "definition": "m.铅笔；", "meanings": ["m.铅笔"], "pos_meanings": [{"pos": "unknown", "meaning": "m.铅笔"}]}, {"word": "goma", "definition": "f.橡皮；", "meanings": ["f.橡皮"], "pos_meanings": [{"pos": "unknown", "meaning": "f.橡皮"}]}, {"word": "fotocopia", "definition": "f.复印件；", "meanings": ["f.复印件"], "pos_meanings": [{"pos": "unknown", "meaning": "f.复印件"}]}, {"word": "mesa", "definition": "f.桌子；", "meanings": ["f.桌子"], "pos_meanings": [{"pos": "unknown", "meaning": "f.桌子"}]}, {"word": "silla", "definition": "f.椅子；", "meanings": ["f.椅子"], "pos_meanings": [{"pos": "unknown", "meaning": "f.椅子"}]}, {"word": "armario", "definition": "m.柜子；", "meanings": ["m.柜子"], "pos_meanings": [{"pos": "unknown", "meaning": "m.柜子"}]}, {"word": "estantería", "definition": "f.带隔板的家具；", "meanings": ["f.带隔板的家具"], "pos_meanings": [{"pos": "unknown", "meaning": "f.带隔板的家具"}]}, {"word": "pizarra", "definition": "f.黑板；", "meanings": ["f.黑板"], "pos_meanings": [{"pos": "unknown", "meaning": "f.黑板"}]}, {"word": "ordenador", "definition": "m.电脑；\\[拉美]computadora；", "meanings": ["m.电脑", "\\[拉美]computadora"], "pos_meanings": [{"pos": "unknown", "meaning": "m.电脑"}, {"pos": "unknown", "meaning": "\\[拉美]computadora"}]}, {"word": "mapa", "definition": "m.地图；", "meanings": ["m.地图"], "pos_meanings": [{"pos": "unknown", "meaning": "m.地图"}]}, {"word": "abogado", "definition": "m.f.律师；", "meanings": ["m.f.律师"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.律师"}]}, {"word": "médico", "definition": "m.f.医生；", "meanings": ["m.f.医生"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.医生"}]}, {"word": "taxista", "definition": "m.f.出租车司机；", "meanings": ["m.f.出租车司机"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.出租车司机"}]}, {"word": "ama de casa", "definition": "phrase.家庭主妇；", "meanings": ["phrase.家庭主妇"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.家庭主妇"}]}, {"word": "ingeniero", "definition": "m.f.工程师；", "meanings": ["m.f.工程师"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.工程师"}]}, {"word": "dedicarse a", "definition": "phrase.从事…工作；", "meanings": ["phrase.从事…工作"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.从事…工作"}]}, {"word": "lugar de trabajo", "definition": "phrase.工作地点；", "meanings": ["phrase.工作地点"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.工作地点"}]}, {"word": "empresa", "definition": "f.公司；", "meanings": ["f.公司"], "pos_meanings": [{"pos": "unknown", "meaning": "f.公司"}]}, {"word": "oficina", "definition": "f.办公室；", "meanings": ["f.办公室"], "pos_meanings": [{"pos": "unknown", "meaning": "f.办公室"}]}, {"word": "tienda", "definition": "f.商店；", "meanings": ["f.商店"], "pos_meanings": [{"pos": "unknown", "meaning": "f.商店"}]}, {"word": "teléfono", "definition": "m.电话；", "meanings": ["m.电话"], "pos_meanings": [{"pos": "unknown", "meaning": "m.电话"}]}, {"word": "fax", "definition": "m.传真；", "meanings": ["m.传真"], "pos_meanings": [{"pos": "unknown", "meaning": "m.传真"}]}, {"word": "trabajo", "definition": "m.工作；", "meanings": ["m.工作"], "pos_meanings": [{"pos": "unknown", "meaning": "m.工作"}]}, {"word": "profesión", "definition": "f.职业；", "meanings": ["f.职业"], "pos_meanings": [{"pos": "unknown", "meaning": "f.职业"}]}, {"word": "comprar", "definition": "tr.买；", "meanings": ["tr.买"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.买"}]}, {"word": "vender", "definition": "tr.卖；", "meanings": ["tr.卖"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.卖"}]}, {"word": "estar en paro", "definition": "phrase.失业；", "meanings": ["phrase.失业"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.失业"}]}, {"word": "trabajar", "definition": "intr.工作；", "meanings": ["intr.工作"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.工作"}]}, {"word": "vacaciones", "definition": "f.\\[pl.]假期；", "meanings": ["f.\\[pl.]假期"], "pos_meanings": [{"pos": "unknown", "meaning": "f.\\[pl.]假期"}]}, {"word": "turista", "definition": "m.f.游客；", "meanings": ["m.f.游客"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.游客"}]}, {"word": "oficina de información", "definition": "phrase.信息咨询处；", "meanings": ["phrase.信息咨询处"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.信息咨询处"}]}, {"word": "viajar", "definition": "intr.旅游；", "meanings": ["intr.旅游"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.旅游"}]}, {"word": "leer el periódico", "definition": "phrase.读报纸；", "meanings": ["phrase.读报纸"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.读报纸"}]}, {"word": "leer un libro", "definition": "phrase.读本书；", "meanings": ["phrase.读本书"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.读本书"}]}, {"word": "leer una revista", "definition": "phrase.读本杂志；", "meanings": ["phrase.读本杂志"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.读本杂志"}]}, {"word": "ver la televisión", "definition": "phrase.看电视；", "meanings": ["phrase.看电视"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.看电视"}]}, {"word": "ver una película", "definition": "phrase.看一部电影；", "meanings": ["phrase.看一部电影"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.看一部电影"}]}, {"word": "escuchar música", "definition": "phrase.听音乐；", "meanings": ["phrase.听音乐"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.听音乐"}]}, {"word": "escuchar la radio", "definition": "phrase.听广播；", "meanings": ["phrase.听广播"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.听广播"}]}, {"word": "escuchar una canción", "definition": "phrase.听首歌；", "meanings": ["phrase.听首歌"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.听首歌"}]}, {"word": "ir a un café", "definition": "phrase.去家咖啡厅；", "meanings": ["phrase.去家咖啡厅"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去家咖啡厅"}]}, {"word": "ir a un restaurante", "definition": "phrase.去家餐厅；", "meanings": ["phrase.去家餐厅"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去家餐厅"}]}, {"word": "ir a un museo", "definition": "phrase.去家博物馆；", "meanings": ["phrase.去家博物馆"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去家博物馆"}]}, {"word": "ir al cine", "definition": "phrase.去电影院；", "meanings": ["phrase.去电影院"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去电影院"}]}, {"word": "ir al teatro", "definition": "phrase.去剧院；", "meanings": ["phrase.去剧院"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去剧院"}]}, {"word": "ir al parque", "definition": "phrase.去公园；", "meanings": ["phrase.去公园"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去公园"}]}, {"word": "ir al circo", "definition": "phrase.去看马戏；", "meanings": ["phrase.去看马戏"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去看马戏"}]}, {"word": "cantar", "definition": "intr.唱歌；", "meanings": ["intr.唱歌"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.唱歌"}]}, {"word": "bailar", "definition": "intr.跳舞；", "meanings": ["intr.跳舞"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.跳舞"}]}, {"word": "película", "definition": "f.电影；", "meanings": ["f.电影"], "pos_meanings": [{"pos": "unknown", "meaning": "f.电影"}]}, {"word": "concierto", "definition": "m.音乐会；", "meanings": ["m.音乐会"], "pos_meanings": [{"pos": "unknown", "meaning": "m.音乐会"}]}, {"word": "correr", "definition": "intr.跑步；", "meanings": ["intr.跑步"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.跑步"}]}, {"word": "nadar", "definition": "intr.游泳；", "meanings": ["intr.游泳"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.游泳"}]}, {"word": "esquiar", "definition": "intr.滑雪；", "meanings": ["intr.滑雪"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.滑雪"}]}, {"word": "hacer deporte", "definition": "phrase.做体育运动；", "meanings": ["phrase.做体育运动"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.做体育运动"}]}, {"word": "hacer ejercicio", "definition": "phrase.做运动；", "meanings": ["phrase.做运动"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.做运动"}]}, {"word": "hacer gimnasia", "definition": "phrase.做体操；", "meanings": ["phrase.做体操"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.做体操"}]}, {"word": "jugar al fútbol", "definition": "phrase.踢足球；", "meanings": ["phrase.踢足球"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.踢足球"}]}, {"word": "jugar al baloncesto", "definition": "phrase.打篮球；", "meanings": ["phrase.打篮球"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.打篮球"}]}, {"word": "jugar al tenis", "definition": "phrase.打网球；", "meanings": ["phrase.打网球"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.打网球"}]}, {"word": "juego", "definition": "m.游戏；", "meanings": ["m.游戏"], "pos_meanings": [{"pos": "unknown", "meaning": "m.游戏"}]}, {"word": "sobre", "definition": "m.信封；", "meanings": ["m.信封"], "pos_meanings": [{"pos": "unknown", "meaning": "m.信封"}]}, {"word": "sello", "definition": "m.印章；", "meanings": ["m.印章"], "pos_meanings": [{"pos": "unknown", "meaning": "m.印章"}]}, {"word": "escribir una postal", "definition": "phrase.写张明信片；", "meanings": ["phrase.写张明信片"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.写张明信片"}]}, {"word": "escribir una carta", "definition": "phrase.写封信；", "meanings": ["phrase.写封信"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.写封信"}]}, {"word": "escribir un correo electrónico", "definition": "phrase.写封电子邮件；", "meanings": ["phrase.写封电子邮件"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.写封电子邮件"}]}, {"word": "teléfono fijo", "definition": "phrase.固定电话；", "meanings": ["phrase.固定电话"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.固定电话"}]}, {"word": "quiosco", "definition": "m.报亭；", "meanings": ["m.报亭"], "pos_meanings": [{"pos": "unknown", "meaning": "m.报亭"}]}, {"word": "arroba", "definition": "f.@（艾特）；", "meanings": ["f.@（艾特）"], "pos_meanings": [{"pos": "unknown", "meaning": "f.@（艾特）"}]}, {"word": "guión", "definition": "m.连字符号\\[-]；", "meanings": ["m.连字符号\\[-]"], "pos_meanings": [{"pos": "unknown", "meaning": "m.连字符号\\[-]"}]}, {"word": "guión bajo", "definition": "phrase.下划线；", "meanings": ["phrase.下划线"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.下划线"}]}, {"word": "punto", "definition": "m.句号,点；", "meanings": ["m.句号,点"], "pos_meanings": [{"pos": "unknown", "meaning": "m.句号,点"}]}, {"word": "página web", "definition": "phrase.网页；", "meanings": ["phrase.网页"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.网页"}]}, {"word": "casa", "definition": "f.家；", "meanings": ["f.家"], "pos_meanings": [{"pos": "unknown", "meaning": "f.家"}]}, {"word": "piso", "definition": "m.公寓,地面,层；", "meanings": ["m.公寓,地面,层"], "pos_meanings": [{"pos": "unknown", "meaning": "m.公寓,地面,层"}]}, {"word": "apartamento", "definition": "m.公寓；", "meanings": ["m.公寓"], "pos_meanings": [{"pos": "unknown", "meaning": "m.公寓"}]}, {"word": "estudio", "definition": "m.单身公寓,工作室；", "meanings": ["m.单身公寓,工作室"], "pos_meanings": [{"pos": "unknown", "meaning": "m.单身公寓,工作室"}]}, {"word": "habitación", "definition": "f.房间；", "meanings": ["f.房间"], "pos_meanings": [{"pos": "unknown", "meaning": "f.房间"}]}, {"word": "ascensor", "definition": "m.电梯；", "meanings": ["m.电梯"], "pos_meanings": [{"pos": "unknown", "meaning": "m.电梯"}]}, {"word": "escalera", "definition": "f.楼梯；", "meanings": ["f.楼梯"], "pos_meanings": [{"pos": "unknown", "meaning": "f.楼梯"}]}, {"word": "terraza", "definition": "f.露台；", "meanings": ["f.露台"], "pos_meanings": [{"pos": "unknown", "meaning": "f.露台"}]}, {"word": "jardín", "definition": "m.花园；", "meanings": ["m.花园"], "pos_meanings": [{"pos": "unknown", "meaning": "m.花园"}]}, {"word": "ventana", "definition": "f.窗户；", "meanings": ["f.窗户"], "pos_meanings": [{"pos": "unknown", "meaning": "f.窗户"}]}, {"word": "puerta", "definition": "f.门；", "meanings": ["f.门"], "pos_meanings": [{"pos": "unknown", "meaning": "f.门"}]}, {"word": "sala de estar", "definition": "phrase.客厅；", "meanings": ["phrase.客厅"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.客厅"}]}, {"word": "dormitorio", "definition": "m.寝室,宿舍；", "meanings": ["m.寝室,宿舍"], "pos_meanings": [{"pos": "unknown", "meaning": "m.寝室,宿舍"}]}, {"word": "cocina", "definition": "f.厨房；", "meanings": ["f.厨房"], "pos_meanings": [{"pos": "unknown", "meaning": "f.厨房"}]}, {"word": "baño", "definition": "m.卫生间；", "meanings": ["m.卫生间"], "pos_meanings": [{"pos": "unknown", "meaning": "m.卫生间"}]}, {"word": "salón", "definition": "m.大厅,沙龙,展厅；", "meanings": ["m.大厅,沙龙,展厅"], "pos_meanings": [{"pos": "unknown", "meaning": "m.大厅,沙龙,展厅"}]}, {"word": "garaje", "definition": "m.车库；", "meanings": ["m.车库"], "pos_meanings": [{"pos": "unknown", "meaning": "m.车库"}]}, {"word": "bien comunicado", "definition": "phrase.交通便利的；", "meanings": ["phrase.交通便利的"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.交通便利的"}]}, {"word": "mal comunicado", "definition": "phrase.交通不便的；", "meanings": ["phrase.交通不便的"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.交通不便的"}]}, {"word": "tener ascensor", "definition": "phrase.配有电梯；", "meanings": ["phrase.配有电梯"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.配有电梯"}]}, {"word": "aire acondicionado", "definition": "phrase.空调；", "meanings": ["phrase.空调"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.空调"}]}, {"word": "calefacción", "definition": "f.暖气；", "meanings": ["f.暖气"], "pos_meanings": [{"pos": "unknown", "meaning": "f.暖气"}]}, {"word": "cama", "definition": "f.床；", "meanings": ["f.床"], "pos_meanings": [{"pos": "unknown", "meaning": "f.床"}]}, {"word": "sofá", "definition": "m.沙发；", "meanings": ["m.沙发"], "pos_meanings": [{"pos": "unknown", "meaning": "m.沙发"}]}, {"word": "sillón", "definition": "m.大扶手椅；", "meanings": ["m.大扶手椅"], "pos_meanings": [{"pos": "unknown", "meaning": "m.大扶手椅"}]}, {"word": "lavabo", "definition": "m.洗手间；", "meanings": ["m.洗手间"], "pos_meanings": [{"pos": "unknown", "meaning": "m.洗手间"}]}, {"word": "vídeo", "definition": "m.视频；\\[拉美]video；", "meanings": ["m.视频", "\\[拉美]video"], "pos_meanings": [{"pos": "unknown", "meaning": "m.视频"}, {"pos": "unknown", "meaning": "\\[拉美]video"}]}, {"word": "carta", "definition": "f.信；", "meanings": ["f.信"], "pos_meanings": [{"pos": "unknown", "meaning": "f.信"}]}, {"word": "postal", "definition": "f.明信片；", "meanings": ["f.明信片"], "pos_meanings": [{"pos": "unknown", "meaning": "f.明信片"}]}, {"word": "banco", "definition": "m.银行；", "meanings": ["m.银行"], "pos_meanings": [{"pos": "unknown", "meaning": "m.银行"}]}, {"word": "dinero", "definition": "m.钱；", "meanings": ["m.钱"], "pos_meanings": [{"pos": "unknown", "meaning": "m.钱"}]}, {"word": "euro", "definition": "m.欧元；", "meanings": ["m.欧元"], "pos_meanings": [{"pos": "unknown", "meaning": "m.欧元"}]}, {"word": "cambiar dinero", "definition": "phrase.换钱；", "meanings": ["phrase.换钱"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.换钱"}]}, {"word": "hospital", "definition": "m.医院；", "meanings": ["m.医院"], "pos_meanings": [{"pos": "unknown", "meaning": "m.医院"}]}, {"word": "enfermera", "definition": "m.f.护士；", "meanings": ["m.f.护士"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.护士"}]}, {"word": "policía", "definition": "m.f.警察；", "meanings": ["m.f.警察"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.警察"}]}, {"word": "bombero", "definition": "m.f.消防员；", "meanings": ["m.f.消防员"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.消防员"}]}, {"word": "supermercado", "definition": "m.超市；", "meanings": ["m.超市"], "pos_meanings": [{"pos": "unknown", "meaning": "m.超市"}]}, {"word": "mercado", "definition": "m.市场；", "meanings": ["m.市场"], "pos_meanings": [{"pos": "unknown", "meaning": "m.市场"}]}, {"word": "entrada", "definition": "f.入口；", "meanings": ["f.入口"], "pos_meanings": [{"pos": "unknown", "meaning": "f.入口"}]}, {"word": "salida", "definition": "f.出口；", "meanings": ["f.出口"], "pos_meanings": [{"pos": "unknown", "meaning": "f.出口"}]}, {"word": "información", "definition": "f.信息；", "meanings": ["f.信息"], "pos_meanings": [{"pos": "unknown", "meaning": "f.信息"}]}, {"word": "comprador", "definition": "m.f.买家；", "meanings": ["m.f.买家"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.买家"}]}, {"word": "vendedor", "definition": "m.f.卖家；", "meanings": ["m.f.卖家"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.卖家"}]}, {"word": "pantalón", "definition": "m.裤子；", "meanings": ["m.裤子"], "pos_meanings": [{"pos": "unknown", "meaning": "m.裤子"}]}, {"word": "vaqueros", "definition": "m.\\[pl.]牛仔裤；\\[墨西哥]pantalónes de mezclilla；", "meanings": ["m.\\[pl.]牛仔裤", "\\[墨西哥]pantalónes de mezclilla"], "pos_meanings": [{"pos": "unknown", "meaning": "m.\\[pl.]牛仔裤"}, {"pos": "unknown", "meaning": "\\[墨西哥]pantalónes de mezclilla"}]}, {"word": "falda", "definition": "f.半身裙；", "meanings": ["f.半身裙"], "pos_meanings": [{"pos": "unknown", "meaning": "f.半身裙"}]}, {"word": "camisa", "definition": "f.衬衫；", "meanings": ["f.衬衫"], "pos_meanings": [{"pos": "unknown", "meaning": "f.衬衫"}]}, {"word": "jersey", "definition": "m.针织衫,运动衫；\\[墨西哥]suéter；", "meanings": ["m.针织衫,运动衫", "\\[墨西哥]suéter"], "pos_meanings": [{"pos": "unknown", "meaning": "m.针织衫,运动衫"}, {"pos": "unknown", "meaning": "\\[墨西哥]suéter"}]}, {"word": "zapatos", "definition": "m.\\[pl.]鞋子；", "meanings": ["m.\\[pl.]鞋子"], "pos_meanings": [{"pos": "unknown", "meaning": "m.\\[pl.]鞋子"}]}, {"word": "bolso", "definition": "m.手提包；", "meanings": ["m.手提包"], "pos_meanings": [{"pos": "unknown", "meaning": "m.手提包"}]}, {"word": "precio", "definition": "m.价钱；", "meanings": ["m.价钱"], "pos_meanings": [{"pos": "unknown", "meaning": "m.价钱"}]}, {"word": "billete", "definition": "m.票,钱币；在\\[拉美]billete表示钱币,票则用boleto；", "meanings": ["m.票,钱币", "在\\[拉美]billete表示钱币,票则用boleto"], "pos_meanings": [{"pos": "unknown", "meaning": "m.票,钱币"}, {"pos": "unknown", "meaning": "在\\[拉美]billete表示钱币,票则用boleto"}]}, {"word": "pagar con tarjeta", "definition": "phrase.刷卡付款；", "meanings": ["phrase.刷卡付款"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.刷卡付款"}]}, {"word": "tarjeta de crédito", "definition": "phrase.信用卡；", "meanings": ["phrase.信用卡"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.信用卡"}]}, {"word": "estar enfermo", "definition": "phrase.生病；", "meanings": ["phrase.生病"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.生病"}]}, {"word": "ir al hospital", "definition": "phrase.去医院；", "meanings": ["phrase.去医院"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去医院"}]}, {"word": "ir al médico", "definition": "phrase.去看医生；", "meanings": ["phrase.去看医生"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去看医生"}]}, {"word": "farmacia", "definition": "f.药店；", "meanings": ["f.药店"], "pos_meanings": [{"pos": "unknown", "meaning": "f.药店"}]}, {"word": "agua", "definition": "f.水；", "meanings": ["f.水"], "pos_meanings": [{"pos": "unknown", "meaning": "f.水"}]}, {"word": "jabón", "definition": "m.肥皂；", "meanings": ["m.肥皂"], "pos_meanings": [{"pos": "unknown", "meaning": "m.肥皂"}]}, {"word": "lavarse la cara", "definition": "phrase.洗脸；", "meanings": ["phrase.洗脸"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.洗脸"}]}, {"word": "lavarse las manos", "definition": "phrase.洗手；", "meanings": ["phrase.洗手"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.洗手"}]}, {"word": "lavarse el pelo", "definition": "phrase.洗头；", "meanings": ["phrase.洗头"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.洗头"}]}, {"word": "lavarse los dientes", "definition": "phrase.刷牙；", "meanings": ["phrase.刷牙"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.刷牙"}]}, {"word": "ducharse", "definition": "prnl.淋浴,洗澡；", "meanings": ["prnl.淋浴,洗澡"], "pos_meanings": [{"pos": "unknown", "meaning": "prnl.淋浴,洗澡"}]}, {"word": "bañarse", "definition": "prnl.沐浴,洗澡；", "meanings": ["prnl.沐浴,洗澡"], "pos_meanings": [{"pos": "unknown", "meaning": "prnl.沐浴,洗澡"}]}, {"word": "carné de identidad", "definition": "phrase.身份证；", "meanings": ["phrase.身份证"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.身份证"}]}, {"word": "pasaporte", "definition": "m.护照；", "meanings": ["m.护照"], "pos_meanings": [{"pos": "unknown", "meaning": "m.护照"}]}, {"word": "carné de conducir", "definition": "phrase.驾照；\\[墨西哥]licencia de manejo；", "meanings": ["phrase.驾照", "\\[墨西哥]licencia de manejo"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.驾照"}, {"pos": "unknown", "meaning": "\\[墨西哥]licencia de manejo"}]}, {"word": "publicidad", "definition": "f.广告；", "meanings": ["f.广告"], "pos_meanings": [{"pos": "unknown", "meaning": "f.广告"}]}, {"word": "maleta", "definition": "f.行李箱；", "meanings": ["f.行李箱"], "pos_meanings": [{"pos": "unknown", "meaning": "f.行李箱"}]}, {"word": "comprar un billete", "definition": "phrase.买一张票；\\[拉美]comprar un boleto；", "meanings": ["phrase.买一张票", "\\[拉美]comprar un boleto"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.买一张票"}, {"pos": "unknown", "meaning": "\\[拉美]comprar un boleto"}]}, {"word": "comprar un billete de ida", "definition": "phrase.买一张去程票；\\[拉美]comprar un boleto de ida；", "meanings": ["phrase.买一张去程票", "\\[拉美]comprar un boleto de ida"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.买一张去程票"}, {"pos": "unknown", "meaning": "\\[拉美]comprar un boleto de ida"}]}, {"word": "comprar un billete de ida y vuelta", "definition": "phrase.买往返票；\\[拉美]comprar un boleto de ida y vuelta；", "meanings": ["phrase.买往返票", "\\[拉美]comprar un boleto de ida y vuelta"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.买往返票"}, {"pos": "unknown", "meaning": "\\[拉美]comprar un boleto de ida y vuelta"}]}, {"word": "horario", "definition": "m.时刻表；", "meanings": ["m.时刻表"], "pos_meanings": [{"pos": "unknown", "meaning": "m.时刻表"}]}, {"word": "ir a Madrid", "definition": "phrase.去马德里；", "meanings": ["phrase.去马德里"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去马德里"}]}, {"word": "ir a la playa", "definition": "phrase.去海滩；", "meanings": ["phrase.去海滩"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去海滩"}]}, {"word": "ir a la montaña", "definition": "phrase.去山上；", "meanings": ["phrase.去山上"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去山上"}]}, {"word": "hotel", "definition": "m.酒店；", "meanings": ["m.酒店"], "pos_meanings": [{"pos": "unknown", "meaning": "m.酒店"}]}, {"word": "camping", "definition": "m.野营；", "meanings": ["m.野营"], "pos_meanings": [{"pos": "unknown", "meaning": "m.野营"}]}, {"word": "habitación doble", "definition": "phrase.双人间；", "meanings": ["phrase.双人间"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.双人间"}]}, {"word": "habitación individual", "definition": "phrase.单人间；", "meanings": ["phrase.单人间"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.单人间"}]}, {"word": "carretera", "definition": "f.公路,大路；", "meanings": ["f.公路,大路"], "pos_meanings": [{"pos": "unknown", "meaning": "f.公路,大路"}]}, {"word": "aeropuerto", "definition": "m.飞机场；", "meanings": ["m.飞机场"], "pos_meanings": [{"pos": "unknown", "meaning": "m.飞机场"}]}, {"word": "puerto", "definition": "m.港口；", "meanings": ["m.港口"], "pos_meanings": [{"pos": "unknown", "meaning": "m.港口"}]}, {"word": "estación de tren", "definition": "phrase.火车站；", "meanings": ["phrase.火车站"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.火车站"}]}, {"word": "estación de metro", "definition": "phrase.地铁站；", "meanings": ["phrase.地铁站"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.地铁站"}]}, {"word": "parada de autobús", "definition": "phrase.公交车站；", "meanings": ["phrase.公交车站"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.公交车站"}]}, {"word": "parada de taxi", "definition": "phrase.出租车停靠站；", "meanings": ["phrase.出租车停靠站"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.出租车停靠站"}]}, {"word": "ir andando", "definition": "phrase.走路去；", "meanings": ["phrase.走路去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.走路去"}]}, {"word": "ir en coche", "definition": "phrase.乘/开车去；", "meanings": ["phrase.乘/开车去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.乘/开车去"}]}, {"word": "ir en taxi", "definition": "phrase.乘坐出租车去；", "meanings": ["phrase.乘坐出租车去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.乘坐出租车去"}]}, {"word": "ir en tren", "definition": "phrase.坐火车去；", "meanings": ["phrase.坐火车去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.坐火车去"}]}, {"word": "ir en metro", "definition": "phrase.坐地铁去；", "meanings": ["phrase.坐地铁去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.坐地铁去"}]}, {"word": "ir en autobús", "definition": "phrase.坐公交车去；", "meanings": ["phrase.坐公交车去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.坐公交车去"}]}, {"word": "ir en avión", "definition": "phrase.坐飞机去；", "meanings": ["phrase.坐飞机去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.坐飞机去"}]}, {"word": "ir en barco", "definition": "phrase.乘船去；", "meanings": ["phrase.乘船去"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.乘船去"}]}, {"word": "conductor", "definition": "m.f.司机；", "meanings": ["m.f.司机"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.司机"}]}, {"word": "aparcamiento", "definition": "m.停车场；", "meanings": ["m.停车场"], "pos_meanings": [{"pos": "unknown", "meaning": "m.停车场"}]}, {"word": "transporte por tierra", "definition": "phrase.陆地交通运输；", "meanings": ["phrase.陆地交通运输"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.陆地交通运输"}]}, {"word": "transporte marítimo y fluvial", "definition": "phrase.海洋和河流交通运输；", "meanings": ["phrase.海洋和河流交通运输"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.海洋和河流交通运输"}]}, {"word": "transporte aéreo", "definition": "phrase.航空交通运输；", "meanings": ["phrase.航空交通运输"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.航空交通运输"}]}, {"word": "caro", "definition": "adj.贵的；", "meanings": ["贵的"], "pos_meanings": [{"pos": "adj.", "meaning": "贵的"}]}, {"word": "barato", "definition": "adj.便宜的；", "meanings": ["便宜的"], "pos_meanings": [{"pos": "adj.", "meaning": "便宜的"}]}, {"word": "pescado", "definition": "m.鱼；", "meanings": ["m.鱼"], "pos_meanings": [{"pos": "unknown", "meaning": "m.鱼"}]}, {"word": "comprar", "definition": "tr.购买；", "meanings": ["tr.购买"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.购买"}]}, {"word": "vender", "definition": "tr.卖；", "meanings": ["tr.卖"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.卖"}]}, {"word": "capital", "definition": "f.首都；", "meanings": ["f.首都"], "pos_meanings": [{"pos": "unknown", "meaning": "f.首都"}]}, {"word": "presidente", "definition": "m.f.主席,总统；", "meanings": ["m.f.主席,总统"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.主席,总统"}]}, {"word": "rey", "definition": "m.国王；", "meanings": ["m.国王"], "pos_meanings": [{"pos": "unknown", "meaning": "m.国王"}]}, {"word": "reina", "definition": "f.女王；", "meanings": ["f.女王"], "pos_meanings": [{"pos": "unknown", "meaning": "f.女王"}]}, {"word": "cine", "definition": "m.电影院；", "meanings": ["m.电影院"], "pos_meanings": [{"pos": "unknown", "meaning": "m.电影院"}]}, {"word": "teatro", "definition": "m.剧院；", "meanings": ["m.剧院"], "pos_meanings": [{"pos": "unknown", "meaning": "m.剧院"}]}, {"word": "música", "definition": "f.音乐；", "meanings": ["f.音乐"], "pos_meanings": [{"pos": "unknown", "meaning": "f.音乐"}]}, {"word": "película", "definition": "f.电影；", "meanings": ["f.电影"], "pos_meanings": [{"pos": "unknown", "meaning": "f.电影"}]}, {"word": "foto", "definition": "f.照片；", "meanings": ["f.照片"], "pos_meanings": [{"pos": "unknown", "meaning": "f.照片"}]}, {"word": "museo", "definition": "m.博物馆；", "meanings": ["m.博物馆"], "pos_meanings": [{"pos": "unknown", "meaning": "m.博物馆"}]}, {"word": "exposición", "definition": "f.展览；", "meanings": ["f.展览"], "pos_meanings": [{"pos": "unknown", "meaning": "f.展览"}]}, {"word": "ser interesante", "definition": "phrase.有意思；", "meanings": ["phrase.有意思"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.有意思"}]}, {"word": "cantante", "definition": "m.f.歌手；", "meanings": ["m.f.歌手"], "pos_meanings": [{"pos": "unknown", "meaning": "m.f.歌手"}]}, {"word": "cantar", "definition": "tr.-intr.唱歌；", "meanings": ["tr.-intr.唱歌"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.-intr.唱歌"}]}, {"word": "bailar", "definition": "intr.跳舞；", "meanings": ["intr.跳舞"], "pos_meanings": [{"pos": "unknown", "meaning": "intr.跳舞"}]}, {"word": "escuchar música", "definition": "phrase.听音乐；", "meanings": ["phrase.听音乐"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.听音乐"}]}, {"word": "edificio", "definition": "m.建筑物；", "meanings": ["m.建筑物"], "pos_meanings": [{"pos": "unknown", "meaning": "m.建筑物"}]}, {"word": "monumento", "definition": "m.纪念碑；", "meanings": ["m.纪念碑"], "pos_meanings": [{"pos": "unknown", "meaning": "m.纪念碑"}]}, {"word": "catedral", "definition": "f.大教堂；", "meanings": ["f.大教堂"], "pos_meanings": [{"pos": "unknown", "meaning": "f.大教堂"}]}, {"word": "iglesia", "definition": "f.教堂；", "meanings": ["f.教堂"], "pos_meanings": [{"pos": "unknown", "meaning": "f.教堂"}]}, {"word": "libro", "definition": "m.书；", "meanings": ["m.书"], "pos_meanings": [{"pos": "unknown", "meaning": "m.书"}]}, {"word": "escribir", "definition": "tr.写；", "meanings": ["tr.写"], "pos_meanings": [{"pos": "unknown", "meaning": "tr.写"}]}, {"word": "actor", "definition": "m.男演员；", "meanings": ["m.男演员"], "pos_meanings": [{"pos": "unknown", "meaning": "m.男演员"}]}, {"word": "actriz", "definition": "f.女演员；", "meanings": ["f.女演员"], "pos_meanings": [{"pos": "unknown", "meaning": "f.女演员"}]}, {"word": "religión", "definition": "f.宗教；", "meanings": ["f.宗教"], "pos_meanings": [{"pos": "unknown", "meaning": "f.宗教"}]}, {"word": "cristiano", "definition": "adj.基督教的；m.f.基督教教徒；", "meanings": ["基督教的", "m.f.基督教教徒"], "pos_meanings": [{"pos": "adj.", "meaning": "基督教的"}, {"pos": "unknown", "meaning": "m.f.基督教教徒"}]}, {"word": "judío", "definition": "adj.犹太人的；m.f.犹太人,犹太教徒；", "meanings": ["犹太人的", "m.f.犹太人,犹太教徒"], "pos_meanings": [{"pos": "adj.", "meaning": "犹太人的"}, {"pos": "unknown", "meaning": "m.f.犹太人,犹太教徒"}]}, {"word": "musulmán", "definition": "adj.穆斯林的；m.f.穆斯林；", "meanings": ["穆斯林的", "m.f.穆斯林"], "pos_meanings": [{"pos": "adj.", "meaning": "穆斯林的"}, {"pos": "unknown", "meaning": "m.f.穆斯林"}]}, {"word": "budista", "definition": "adj.佛教的；m.f.佛教徒；", "meanings": ["佛教的", "m.f.佛教徒"], "pos_meanings": [{"pos": "adj.", "meaning": "佛教的"}, {"pos": "unknown", "meaning": "m.f.佛教徒"}]}, {"word": "ir a la iglesia", "definition": "phrase.去教堂；", "meanings": ["phrase.去教堂"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去教堂"}]}, {"word": "ir a la mezquita", "definition": "phrase.去清真寺；", "meanings": ["phrase.去清真寺"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去清真寺"}]}, {"word": "ir a la sinagoga", "definition": "phrase.去犹太教堂；", "meanings": ["phrase.去犹太教堂"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.去犹太教堂"}]}, {"word": "sol", "definition": "m.太阳；", "meanings": ["m.太阳"], "pos_meanings": [{"pos": "unknown", "meaning": "m.太阳"}]}, {"word": "lugar", "definition": "m.地方；", "meanings": ["m.地方"], "pos_meanings": [{"pos": "unknown", "meaning": "m.地方"}]}, {"word": "norte", "definition": "m.北部；", "meanings": ["m.北部"], "pos_meanings": [{"pos": "unknown", "meaning": "m.北部"}]}, {"word": "sur", "definition": "m.南部；", "meanings": ["m.南部"], "pos_meanings": [{"pos": "unknown", "meaning": "m.南部"}]}, {"word": "este", "definition": "m.东部；", "meanings": ["m.东部"], "pos_meanings": [{"pos": "unknown", "meaning": "m.东部"}]}, {"word": "oeste", "definition": "m.西部；", "meanings": ["m.西部"], "pos_meanings": [{"pos": "unknown", "meaning": "m.西部"}]}, {"word": "plaza", "definition": "f.广场；", "meanings": ["f.广场"], "pos_meanings": [{"pos": "unknown", "meaning": "f.广场"}]}, {"word": "centro comercial", "definition": "phrase.购物中心；", "meanings": ["phrase.购物中心"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.购物中心"}]}, {"word": "colegio", "definition": "m.学院,学校；", "meanings": ["m.学院,学校"], "pos_meanings": [{"pos": "unknown", "meaning": "m.学院,学校"}]}, {"word": "escuela", "definition": "f.学校；", "meanings": ["f.学校"], "pos_meanings": [{"pos": "unknown", "meaning": "f.学校"}]}, {"word": "primavera", "definition": "f.春天；", "meanings": ["f.春天"], "pos_meanings": [{"pos": "unknown", "meaning": "f.春天"}]}, {"word": "verano", "definition": "m.夏天；", "meanings": ["m.夏天"], "pos_meanings": [{"pos": "unknown", "meaning": "m.夏天"}]}, {"word": "otoño", "definition": "m.秋天；", "meanings": ["m.秋天"], "pos_meanings": [{"pos": "unknown", "meaning": "m.秋天"}]}, {"word": "invierno", "definition": "m.冬天；", "meanings": ["m.冬天"], "pos_meanings": [{"pos": "unknown", "meaning": "m.冬天"}]}, {"word": "llover", "definition": "impers.下雨；", "meanings": ["impers.下雨"], "pos_meanings": [{"pos": "unknown", "meaning": "impers.下雨"}]}, {"word": "nevar", "definition": "impers.下雪；", "meanings": ["impers.下雪"], "pos_meanings": [{"pos": "unknown", "meaning": "impers.下雪"}]}, {"word": "hace frío", "definition": "phrase.天气寒冷；", "meanings": ["phrase.天气寒冷"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.天气寒冷"}]}, {"word": "hace calor", "definition": "phrase.天气炎热；", "meanings": ["phrase.天气炎热"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.天气炎热"}]}, {"word": "hace sol", "definition": "phrase.阳光明媚；", "meanings": ["phrase.阳光明媚"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.阳光明媚"}]}, {"word": "hace viento", "definition": "phrase.刮风；", "meanings": ["phrase.刮风"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.刮风"}]}, {"word": "hace buen tiempo", "definition": "phrase.好天气；", "meanings": ["phrase.好天气"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.好天气"}]}, {"word": "hace mal tiempo", "definition": "phrase.天气不好；", "meanings": ["phrase.天气不好"], "pos_meanings": [{"pos": "unknown", "meaning": "phrase.天气不好"}]}, {"word": "animal", "definition": "m.动物；", "meanings": ["m.动物"], "pos_meanings": [{"pos": "unknown", "meaning": "m.动物"}]}, {"word": "planta", "definition": "f.植物；", "meanings": ["f.植物"], "pos_meanings": [{"pos": "unknown", "meaning": "f.植物"}]}, {"word": "flor", "definition": "f.花；", "meanings": ["f.花"], "pos_meanings": [{"pos": "unknown", "meaning": "f.花"}]}, {"word": "árbol", "definition": "m.树；", "meanings": ["m.树"], "pos_meanings": [{"pos": "unknown", "meaning": "m.树"}]}]};
+        const listKeys = Object.keys(wordLists);
+        // 随机选择一个列表作为activeList
+        let activeList = listKeys[Math.floor(Math.random() * listKeys.length)];
+        let currentWords = wordLists[activeList] || [];
+        let isOrdered = false;
+        
+        // DOM元素
+        const themeSwitchBtn = document.getElementById('btn-theme');
+        const mobileSidebarToggle = document.getElementById('btn-menu');
+        const sidebarListSelector = document.getElementById('sidebar');
+        const focusModeBtn = document.getElementById('btn-focus');
+        const searchInput = document.getElementById('search');
+        const html = document.documentElement;
+        const pageBottomStatus = document.getElementById('status-bottom');
+        const pageTopStatus = document.getElementById('status-top');
+        
+        // 单词列表弹窗元素
+        const wordListModalBtn = document.getElementById('btn-list');
+        const wordListModal = document.getElementById('modal');
+        const wordListModalContainer = document.getElementById('modal-body');
+        const wordListModalTitle = document.getElementById('modal-title');
+        const wordListModalStats = document.getElementById('modal-footer');
+        
+        // 游戏元素
+        const wordColumn = document.getElementById('word-column');
+        const definitionColumn = document.getElementById('definition-column');
+        const gameStatus = document.getElementById('game-status');
+        const gameComplete = document.getElementById('game-complete');
+        const progressBar = document.getElementById('progress-fill');
+        
+        // 根据随机选择的activeList设置按钮高亮和更新侧边栏信息
+        function initializeActiveList() {
+            // 设置对应列表按钮高亮
+            document.querySelectorAll('.list-select-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.list === activeList);
+            });
+            // 更新侧边栏信息
+            document.getElementById('sidebar-info').textContent = 
+                `${activeList} (${currentWords.length} words)`;
+        }
+        
+        // 初始化页面时设置activeList
+        initializeActiveList();
+        
+        // 游戏状态变量
+        let currentWordPairs = [];
+        let currentRoundWords = [];
+        let selectedWordIndex = null;
+        let selectedDefinitionIndex = null;
+        let matchedPairs = 0;
+        let totalPairs = 0;
+        let currentRound = 0;
+        let currentGroups = [];
+        let currentGroupIndex = 0;
+
+        // ========== 主题切换功能 ==========
+        function initTheme() {
+            if (localStorage.getItem('theme') === 'dark' || 
+                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                html.classList.add('dark');
+                themeSwitchBtn.textContent = 'Light';
+            } else {
+                html.classList.remove('dark');
+                themeSwitchBtn.textContent = 'Dark';
+            }
+        }
+
+        function calculateTransitionParams(e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+            html.style.setProperty('--x', x + 'px');
+            html.style.setProperty('--y', y + 'px');
+            html.style.setProperty('--r', endRadius + 'px');
+        }
+
+        themeSwitchBtn.addEventListener('click', (e) => {
+            calculateTransitionParams(e);
+            if (document.startViewTransition) {
+                document.startViewTransition(() => {
+                    const isDark = html.classList.contains('dark');
+                    if (isDark) {
+                        html.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                        themeSwitchBtn.textContent = 'Dark';
+                    } else {
+                        html.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                        themeSwitchBtn.textContent = 'Light';
+                    }
+                });
+            } else {
+                const isDark = html.classList.contains('dark');
+                if (isDark) {
+                    html.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                    themeSwitchBtn.textContent = 'Dark';
+                } else {
+                    html.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                    themeSwitchBtn.textContent = 'Light';
+                }
+            }
+        });
+
+        // ========== 搜索功能 ==========
+        function handleSearch() {
+            if (!searchInput) return;
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const wordItems = document.querySelectorAll('.modal-item');
+            
+            // 重置所有样式
+            wordItems.forEach(item => {
+                item.classList.remove('search-no-match');
+                const wordEl = item.querySelector('.item-word');
+                const defEl = item.querySelector('.item-definition');
+                wordEl.innerHTML = wordEl.textContent;
+                defEl.innerHTML = defEl.textContent;
+            });
+            
+            // 关键词不为空时执行搜索
+            if (searchTerm) {
+                wordItems.forEach(item => {
+                    const wordEl = item.querySelector('.item-word');
+                    const defEl = item.querySelector('.item-definition');
+                    const wordText = wordEl.textContent;
+                    const defText = defEl.textContent;
+                    const hasMatch = wordText.toLowerCase().includes(searchTerm) || 
+                                   defText.toLowerCase().includes(searchTerm);
+                    
+                    if (!hasMatch) {
+                        item.classList.add('search-no-match');
+                    } else {
+                        if (wordText.toLowerCase().includes(searchTerm)) {
+                            wordEl.innerHTML = highlightText(wordText, searchTerm);
+                        }
+                        if (defText.toLowerCase().includes(searchTerm)) {
+                            defEl.innerHTML = highlightText(defText, searchTerm);
+                        }
+                    }
+                });
+            }
+        }
+
+        function highlightText(text, searchTerm) {
+            let result = '';
+            const lowerText = text.toLowerCase();
+            let startIndex = 0;
+            let index;
+            
+            while ((index = lowerText.indexOf(searchTerm, startIndex)) !== -1) {
+                result += text.substring(startIndex, index);
+                result += `<span class="search-match-char">${text.substring(index, index + searchTerm.length)}</span>`;
+                startIndex = index + searchTerm.length;
+            }
+            result += text.substring(startIndex);
+            return result;
+        }
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(handleSearch, 200);
+        });
+        if (searchInput) {
+            searchInput.placeholder = 'Search...';
+            searchInput.addEventListener('click', () => {
+                searchInput.placeholder = '';
+            });
+            searchInput.addEventListener('blur', () => {
+                if (!searchInput.value.trim()) {
+                    searchInput.placeholder = 'Search...';
+                }
+            });
+        }
+
+        // ========== 移动端侧边栏 ==========
+        mobileSidebarToggle.addEventListener('click', () => {
+            sidebarListSelector.classList.toggle('mobile-open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (window.innerWidth <= 1300 && 
+                !sidebarListSelector.contains(e.target) && 
+                !mobileSidebarToggle.contains(e.target) &&
+                sidebarListSelector.classList.contains('mobile-open')) {
+                sidebarListSelector.classList.remove('mobile-open');
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 1300) {
+                sidebarListSelector.classList.remove('mobile-open');
+            }
+        });
+
+        // ========== 专注模式 ==========
+        focusModeBtn.addEventListener('click', () => {
+            const isFocus = document.body.classList.toggle('focus-mode');
+            focusModeBtn.textContent = isFocus ? 'Focusing' : 'Focus';
+            focusModeBtn.classList.toggle('active', isFocus);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.body.classList.contains('focus-mode')) {
+                document.body.classList.remove('focus-mode');
+                focusModeBtn.textContent = 'Focus';
+                focusModeBtn.classList.remove('active');
+            }
+        });
+
+        // ========== 单词列表弹窗 ==========
+        function openWordTable() {
+            wordListModal.classList.add('active');
+            searchInput.style.display = 'block';
+            updateWordTable();
+        }
+
+        function closeWordTable() {
+            wordListModal.classList.remove('active');
+            searchInput.style.display = 'none';
+            searchInput.value = '';
+            handleSearch();
+        }
+
+        function updateWordTable() {
+            if (!wordListModalContainer) return;
+            
+            wordListModalContainer.innerHTML = '';
+            
+            wordListModalTitle.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                    <span>${activeList}</span>
+                    <span>${wordLists[activeList].length} words</span>
+                </div>
+            `;
+            
+            currentWords.forEach(wordObj => {
+                const item = document.createElement('div');
+                item.className = 'modal-item';
+                item.innerHTML = `
+                    <div class="item-word">${wordObj.word}</div>
+                    <div class="item-definition">${wordObj.definition}</div>
+                `;
+                wordListModalContainer.appendChild(item);
+            });
+            
+            wordListModalStats.textContent = '';
+            handleSearch();
+        }
+
+        wordListModalBtn.addEventListener('click', () => {
+            if (wordListModal.classList.contains('active')) {
+                closeWordTable();
+            } else {
+                openWordTable();
+                handleSearch();
+            }
+        });
+
+        wordListModal.addEventListener('click', function(event) {
+            if (event.target === wordListModal) {
+                closeWordTable();
+            }
+        });
+
+        // ========== 进度条更新 ==========
+        function updateProgressBar() {
+            if (totalPairs === 0) {
+                progressBar.style.width = '0%';
+                gameStatus.textContent = 'Matched: 0 / 0';
+                return;
+            }
+            const progress = (matchedPairs / totalPairs) * 100;
+            progressBar.style.width = `${progress}%`;
+            gameStatus.textContent = `Matched: ${matchedPairs} / ${totalPairs}`;
+        }
+
+        // ========== 状态显示更新 ==========
+        function updateStatus() {
+            const statusText = `${activeList} in ${isOrdered ? 'Order' : 'Disorder'}`;
+            pageTopStatus.textContent = statusText;
+            pageBottomStatus.textContent = statusText;
+        }
+
+        // ========== 洗牌算法（内嵌在HTML中，非Python生成） ==========
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // ========== 分组逻辑 ==========
+        function createGroups(wordList) {
+            const groups = [];
+            for (let i = 0; i < wordList.length; i += 4) {
+                groups.push(wordList.slice(i, i + 4));
+            }
+            return groups;
+        }
+
+        // ========== 按词性优先选择意思（核心优化） ==========
+        function getRandomMeaningsByPos(posMeanings, count = 3) {
+            // 1. 按词性分组
+            const posGroups = {};
+            for (const item of posMeanings) {
+                const pos = item.pos;
+                if (!posGroups[pos]) {
+                    posGroups[pos] = [];
+                }
+                posGroups[pos].push(item.meaning);
+            }
+            
+            // 2. 打乱词性组顺序
+            const posGroupKeys = shuffleArray(Object.keys(posGroups));
+            const selected = [];
+            let remainingCount = count;
+            
+            // 3. 优先从不同词性组选择
+            for (const pos of posGroupKeys) {
+                if (remainingCount <= 0) break;
+                const meaningsInPos = posGroups[pos];
+                const randomMean = meaningsInPos[Math.floor(Math.random() * meaningsInPos.length)];
+                selected.push(randomMean);
+                remainingCount--;
+            }
+            
+            // 4. 若未选够，从所有意思中补充
+            if (remainingCount > 0) {
+                const allMeanings = posMeanings.map(item => item.meaning);
+                const shuffledAll = shuffleArray(allMeanings);
+                
+                for (const mean of shuffledAll) {
+                    if (remainingCount <= 0) break;
+                    if (!selected.includes(mean)) {
+                        selected.push(mean);
+                        remainingCount--;
+                    }
+                }
+            }
+            
+            return [...new Set(selected)];
+        }
+
+        // 纯意思选择（兼容用）
+        function getRandomMeanings(meaningsArray, count = 3) {
+            if (!meaningsArray || meaningsArray.length === 0) {
+                return [];
+            }
+            const shuffled = [...meaningsArray];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled.slice(0, Math.min(count, shuffled.length));
+        }
+
+        // ========== 游戏核心逻辑 ==========
+        function initGame(wordList) {
+            currentWordPairs = [...wordList];
+            selectedWordIndex = null;
+            selectedDefinitionIndex = null;
+            matchedPairs = 0;
+            totalPairs = wordList.length;
+            currentRound = 0;
+            currentRoundWords = [];
+            
+            if (!isOrdered) {
+                const shuffledList = shuffleArray(currentWordPairs);
+                currentGroups = createGroups(shuffledList);
+            } else {
+                currentGroups = createGroups(currentWordPairs);
+            }
+            currentGroupIndex = 0;
+            
+            wordColumn.innerHTML = '';
+            definitionColumn.innerHTML = '';
+            gameComplete.classList.remove('visible');
+            
+            startNewGroup();
+            updateProgressBar();
+            updateStatus();
+        }
+        
+        function startNewGroup() {
+            isProcessing = false;
+            
+            wordColumn.classList.add('fade-out');
+            definitionColumn.classList.add('fade-out');
+            
+            setTimeout(() => {
+                wordColumn.innerHTML = '';
+                definitionColumn.innerHTML = '';
+                selectedWordIndex = null;
+                selectedDefinitionIndex = null;
+                
+                wordColumn.classList.remove('fade-out');
+                definitionColumn.classList.remove('fade-out');
+                
+                if (currentGroupIndex >= currentGroups.length) {
+                    gameComplete.classList.add('visible');
+                    return;
+                }
+                
+                const currentGroup = currentGroups[currentGroupIndex];
+                currentRoundWords = [...currentGroup];
+            
+                // 生成单词卡片
+                const shuffledWords = shuffleArray([...currentGroup]);
+                for (let i = 0; i < 4; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'word-card';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    if (i < shuffledWords.length) {
+                        card.innerHTML = '<b>' + shuffledWords[i].word + '</b>';
+                        card.dataset.index = i;
+                        card.dataset.originalIndex = currentGroup.findIndex(w => w.word === shuffledWords[i].word);
+                        card.addEventListener('click', () => handleCardClick('word', i, card));
+                    } else {
+                        card.style.visibility = 'hidden';
+                    }
+                    wordColumn.appendChild(card);
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                        setTimeout(() => {
+                            card.style.transform = '';
+                            card.style.opacity = '';
+                        }, 300);
+                    }, 50 * i);
+                }
+                
+                // 生成释义卡片（使用按词性选择的逻辑）
+                const shuffledDefs = shuffleArray([...currentGroup]);
+                for (let i = 0; i < 4; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'definition-card';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    if (i < shuffledDefs.length) {
+                        const wordObj = shuffledDefs[i];
+                        let displayText = '';
+                        if (wordObj.pos_meanings && wordObj.pos_meanings.length > 0) {
+                            // 优先使用带词性的意思选择
+                            const selectedMeanings = getRandomMeaningsByPos(wordObj.pos_meanings, 3);
+                            displayText = selectedMeanings.join('，');
+                        } else if (wordObj.meanings && wordObj.meanings.length > 0) {
+                            // 兼容无词性数据的情况
+                            const selectedMeanings = getRandomMeanings(wordObj.meanings, 3);
+                            displayText = selectedMeanings.join('，');
+                        } else {
+                            displayText = wordObj.definition;
+                        }
+                        card.innerHTML = '<b>' + displayText + '</b>';
+                        card.dataset.index = i;
+                        card.dataset.originalIndex = currentGroup.findIndex(w => w.definition === shuffledDefs[i].definition);
+                        card.addEventListener('click', () => handleCardClick('definition', i, card));
+                    } else {
+                        card.style.visibility = 'hidden';
+                    }
+                    definitionColumn.appendChild(card);
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                        setTimeout(() => {
+                            card.style.transform = '';
+                            card.style.opacity = '';
+                        }, 300);
+                    }, 50 * i);
+                }
+                
+                wordColumn.classList.remove('fade-out');
+                definitionColumn.classList.remove('fade-out');
+                
+                currentRound++;
+            }, 300);
+        }
+
+        let isProcessing = false;
+        
+        function handleCardClick(type, index, card) {
+            if (card.style.visibility === 'hidden' || card.classList.contains('matched')) return;
+            
+            const isCurrentlySelected = card.classList.contains('selected');
+            
+            const sameTypeCards = type === 'word' 
+                ? document.querySelectorAll('.word-card.selected') 
+                : document.querySelectorAll('.definition-card.selected');
+            sameTypeCards.forEach(c => c.classList.remove('selected'));
+            
+            if (!isCurrentlySelected) {
+                card.classList.add('selected');
+                if (type === 'word') selectedWordIndex = index;
+                else selectedDefinitionIndex = index;
+            } else {
+                if (type === 'word') selectedWordIndex = null;
+                else selectedDefinitionIndex = null;
+            }
+            
+            if (selectedWordIndex !== null && selectedDefinitionIndex !== null && !isProcessing) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            isProcessing = true;
+            
+            const wordCard = document.querySelectorAll('.word-card')[selectedWordIndex];
+            const defCard = document.querySelectorAll('.definition-card')[selectedDefinitionIndex];
+            
+            const wordOriginalIndex = parseInt(wordCard.dataset.originalIndex);
+            const defOriginalIndex = parseInt(defCard.dataset.originalIndex);
+            const isMatch = wordOriginalIndex === defOriginalIndex;
+            
+            if (isMatch) {
+                wordCard.classList.add('matched');
+                defCard.classList.add('matched');
+                matchedPairs++;
+                updateProgressBar();
+                
+                selectedWordIndex = null;
+                selectedDefinitionIndex = null;
+                
+                const currentGroup = currentGroups[currentGroupIndex];
+                const matchedInGroup = document.querySelectorAll('.word-card.matched').length;
+                
+                setTimeout(() => {
+                    if (matchedInGroup >= currentGroup.length) {
+                        currentGroupIndex++;
+                        startNewGroup();
+                    }
+                    isProcessing = false;
+                }, 100);
+            } else {
+                wordCard.classList.add('mismatch');
+                defCard.classList.add('mismatch');
+                
+                setTimeout(() => {
+                    wordCard.classList.remove('selected', 'mismatch');
+                    defCard.classList.remove('selected', 'mismatch');
+                    selectedWordIndex = null;
+                    selectedDefinitionIndex = null;
+                    isProcessing = false;
+                }, 100); 
+            }
+        }
+
+        // ========== 列表切换和顺序切换 ==========
+        function switchList(listName) {
+            activeList = listName;
+            currentWords = wordLists[activeList] || [];
+            
+            document.querySelectorAll('.list-select-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.list === listName);
+            });
+            
+            document.getElementById('sidebar-info').textContent = 
+                `${activeList} (${currentWords.length} words)`;
+            
+            updateStatus();
+            
+            if (wordListModal.classList.contains('active')) {
+                updateWordTable();
+            }
+            
+            initGame(currentWords);
+        }
+
+        function setOrder(orderType) {
+            isOrdered = orderType === 'ordered';
+            document.querySelectorAll('.btn-order').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.order === orderType);
+            });
+            initGame(currentWords);
+        }
+
+        document.querySelectorAll('.list-select-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchList(btn.dataset.list);
+            });
+        });
+
+        document.querySelectorAll('.btn-order').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setOrder(btn.dataset.order);
+            });
+        });
+
+        // ========== 页面初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initGame(currentWords);
+            updateStatus();
+            console.log('Game initialized successfully!');
+            
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeWordTable();
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleSidebar();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
