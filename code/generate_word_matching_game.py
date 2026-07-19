@@ -1,0 +1,1553 @@
+import os
+import json
+import datetime
+
+from responsive_layout_system import SIDEBAR_MEDIA_QUERY, render_responsive_layout_style
+
+# =============================================================================
+# 项目路径配置
+# =============================================================================
+def get_project_root():
+    """获取项目根目录路径"""
+    # 获取当前脚本所在目录
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # 返回项目根目录（脚本目录的上一级）
+    return os.path.dirname(script_dir)
+
+# 项目路径常量
+PROJECT_ROOT = get_project_root()
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "output")
+
+# 确保目录存在
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# =============================================================================
+# 读取单词列表文件
+# =============================================================================
+def read_word_files():
+    word_lists = {}
+    
+    # 从 data/ 目录读取所有 txt 文件
+    txt_files = [f for f in os.listdir(DATA_DIR) if f.endswith('.txt')]
+    
+    # 如果没有找到txt文件，创建一个示例文件
+    if not txt_files:
+        print("No txt files found in data/, creating sample word file...")
+        sample_words = [
+            "abandon|vt.遗弃，放弃；n.放纵；",
+            "ability|n.能力，才能；",
+            "abnormal|adj.反常的，异常的；",
+            "abolish|vt.彻底废除，废止；",
+            "abortion|n.流产，堕胎；",
+            "absolute|adj.绝对的，完全的；",
+            "absorb|vt.吸收；使全神贯注；",
+            "abstract|adj.抽象的；n.摘要；"
+        ]
+        sample_path = os.path.join(DATA_DIR, 'sample_words.txt')
+        with open(sample_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(sample_words))
+        txt_files = ['sample_words.txt']
+    
+    # 为每个txt文件创建单词列表
+    for txt_file in txt_files:
+        # 去除.txt后缀作为列表名称
+        list_name = os.path.splitext(txt_file)[0]
+        word_lists[list_name] = []
+        
+        file_path = os.path.join(DATA_DIR, txt_file)
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                for line_num, line in enumerate(f, 1):
+                    line = line.strip()
+                    if line:
+                        try:
+                            word, definition = line.split('|', 1)
+                            # 存储带词性的意思和纯意思列表
+                            pos_meanings = []  # 格式: [{pos: "v.", meaning: "改变"}, ...]
+                            meanings = []      # 纯意思列表（兼容原有逻辑）
+                            
+                            # 按“；”分割不同词性的定义块
+                            pos_blocks = definition.split('；')
+                            for block in pos_blocks:
+                                block = block.strip()
+                                if not block:
+                                    continue
+                                
+                                # 提取词性标签（如adj./n./v.等）
+                                pos = ""
+                                for i, char in enumerate(block):
+                                    if char == '.':
+                                        potential_pos = block[:i+1]
+                                        # 检查是否为标准词性标签
+                                        if potential_pos in ['adj.', 'adv.', 'n.', 'v.', 'vt.', 'vi.', 
+                                                             'prep.', 'conj.', 'pron.', 'art.', 'num.', 'interj.']:
+                                            pos = potential_pos
+                                            # 提取该词性下的中文意思
+                                            chinese_part = block[i+1:].strip()
+                                            if chinese_part:
+                                                for mean in chinese_part.split('，'):
+                                                    mean = mean.strip()
+                                                    if mean:
+                                                        pos_meanings.append({"pos": pos, "meaning": mean})
+                                                        meanings.append(mean)
+                                        break
+                                # 处理无明确词性的情况
+                                if not pos and any('\u4e00' <= char <= '\u9fff' for char in block):
+                                    for mean in block.split('，'):
+                                        mean = mean.strip()
+                                        if mean:
+                                            pos_meanings.append({"pos": "unknown", "meaning": mean})
+                                            meanings.append(mean)
+                            
+                            word_lists[list_name].append({
+                                'word': word.strip(),
+                                'definition': definition.strip(),
+                                'meanings': meanings,          # 纯意思列表
+                                'pos_meanings': pos_meanings   # 带词性的意思列表
+                            })
+                        except ValueError:
+                            print(f"Format error in line {line_num} ({list_name}): {line}")
+        except Exception as e:
+            print(f"Error reading file {txt_file}: {e}")
+    
+    return word_lists
+
+# 生成HTML文件（洗牌逻辑内嵌在HTML中）
+def generate_html(word_lists):
+    if not word_lists:
+        print("Error: No available word lists found")
+        return
+    
+    # 确保至少有一个列表有单词
+    first_list_name = list(word_lists.keys())[0]
+    if not word_lists[first_list_name]:
+        print(f"Warning: List '{first_list_name}' is empty")
+    
+    html_content = '''<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词匹配 | Words Match</title>
+    <style>
+    /* ============================== 1. 基础定义 ============================== */
+    :root {
+        --theme-pink: #ff99cc;
+        --theme-blue: #42a5f5;
+        --modal-dark-bg: rgba(255, 255, 255, 0.1);
+        --page-bg: #fef8ed;
+        --card-bg: white;
+        --sidebar-list-bg: #fef8ed;
+        --text-primary: #333;
+        --text-secondary: #666;
+        --btn-text: #000;
+        --progress-fill-bg: #f1f1f1;
+        --border-color: #ccc;
+        --shadow-primary: 0 6px 12px rgba(0,0,0,0.05);
+        --shadow-secondary: 0 4px 8px rgba(0,0,0,0.02);
+        --scrollbar-track: #f1f1f1;
+        --scrollbar-thumb: #bbb;
+        --scrollbar-thumb-hover: #999;
+        --x: 0px;
+        --y: 0px;
+        --r: 0px;
+        --btn-show-def-hover: #ff6699;
+        --btn-prev-bg: #cccccc;
+        --btn-prev-hover: #999999;
+        --order-toggle-disordered-hover: var(--btn-prev-bg);
+        --order-toggle-ordered: #b7e4c7;
+        --order-toggle-ordered-hover: #a7f3d0;
+        --list-select-btn-active-bg: var(--card-bg);
+        --list-select-btn-active-text: #333;
+    }
+
+    :root.dark {
+        --theme-pink: #d64187;
+        --btn-prev-bg: #555;
+        --btn-prev-hover: #777;
+        --order-toggle-disordered-hover: var(--btn-prev-bg);
+        --theme-blue: #2563eb;
+        --page-bg: #2d2b3a;
+        --card-bg: #3a384c;
+        --sidebar-list-bg: #2d2b3a;
+        --text-primary: #f0f0f0;
+        --text-secondary: #ddd;
+        --btn-text: white;
+        --progress-fill-bg: #4a485c;
+        --border-color: #555;
+        --shadow-primary: 0 6px 12px rgba(255,255,255,0.05);
+        --shadow-secondary: 0 4px 8px rgba(255,255,255,0.02);
+        --scrollbar-track: #4a485c;
+        --scrollbar-thumb: #666;
+        --scrollbar-thumb-hover: #888;
+        --btn-show-def-hover: #b8326d;
+        --list-select-btn-active-bg: #3a384c;
+        --list-select-btn-active-text: #fff;
+        --order-toggle-ordered: #166534;
+        --order-toggle-ordered-hover: #14532d;
+    }
+
+    /* 模式切换动画 */
+    ::view-transition-old(*) {animation: none;}
+    ::view-transition-new(*) {animation: clip 0.4s cubic-bezier(1,0,0,1);}
+    ::view-transition-old(root) {z-index: 1;}
+    ::view-transition-new(root) {z-index: 9999;}
+    html.dark::view-transition-old(*) {animation: none;}
+    html.dark::view-transition-new(*) {animation: clip 0.4s cubic-bezier(1,0,0,1);}
+    @keyframes clip {
+        from {clip-path: circle(0% at var(--x) var(--y));}
+        to {clip-path: circle(var(--r) at var(--x) var(--y));}
+    }
+
+    /* ============================== 2. 全局样式 ============================== */
+    body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: var(--page-bg);
+        font-size: 1.2em;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        color: var(--text-primary);
+        position: relative;
+    }
+
+    .search {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        border: 3px solid var(--theme-pink);
+        border-radius: 15px;
+        background: transparent;
+        color: var(--text-primary);
+        font-size: 16px;
+        padding: 8px 15px;
+        outline: none;
+        width: 200px;
+        font-weight: bold;
+        text-align: center;
+        transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+        box-sizing: border-box;
+        display: none;
+        margin: 0;
+    }
+    .search::placeholder {
+        color: var(--text-primary);
+        font-style: italic;
+    }
+    .search-match-char {
+        color: var(--theme-pink);
+        font-weight: bold;
+        transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+    .search-no-match {
+        background-color: var(--page-bg) !important;
+        transition: background-color 0.2s ease;
+    }
+
+    .status-top, .status-bottom {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--text-secondary);
+        font-weight: bold;
+        font-size: 0.6rem;
+        z-index: 5;
+        padding: 0;
+        margin: 0;
+    }
+    .status-top {top: 2px;}
+    .status-bottom {bottom: 2px;}
+
+    /* ============================== 3. 按钮样式 ============================== */
+    .btn {
+        padding: clamp(8px,2vw,8px) clamp(12px,3vw,18px);
+        font-size: 16px;
+        border: none;
+        border-radius: 15px;
+        background-color: var(--card-bg);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        line-height: 1.2;
+        margin: 0;
+    }
+    .btn:hover {
+        transform: scale(1.05);
+    }
+    .btn.active {
+        background-color: var(--theme-pink);
+        transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+    }
+
+    .btn-float {
+        position: fixed;
+        width: 120px;
+        z-index: 20;
+    }
+    .btn-float:hover {
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-menu {top:20px;left:20px;display:none;}
+    .btn-theme {top:20px;right:20px;}
+    .btn-list {bottom:20px;right:20px;}
+    .btn-focus {top:20px;left:50%;transform: translateX(-50%);}
+    .btn-focus:hover {transform: translateX(-50%) scale(1.05);}
+
+    .btn-nav {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 60px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background-color: var(--sidebar-list-bg);
+        color: var(--text-secondary);
+    }
+    .list-select-btn:hover, .list-select-btn.active {
+        font-size: clamp(18px, 3vw, 22px);
+        background-color: var(--list-select-btn-active-bg);
+        color: var(--list-select-btn-active-text);
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-order:hover {
+        font-size: clamp(18px, 3vw, 22px);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-order[data-order="ordered"]:hover {
+        background-color: var(--order-toggle-ordered-hover);
+    }
+    :root.dark .btn-order[data-order="ordered"]:hover {
+        background-color: var(--order-toggle-ordered-hover);
+    }
+    .btn-order.active {
+        font-size: clamp(18px, 3vw, 22px);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-primary);
+    }
+    .btn-order[data-order="ordered"].active {background-color: var(--order-toggle-ordered);}
+    :root.dark .btn-order[data-order="ordered"].active {background-color: var(--order-toggle-ordered);}
+    .btn-order[data-order="disordered"]:hover {
+        background-color: var(--order-toggle-disordered-hover);
+    }
+    .btn-order[data-order="disordered"].active {
+        background-color: var(--order-toggle-disordered-hover);
+    }
+
+    /* ============================== 4. 布局样式 ============================== */
+    .sidebar {
+        width: 250px;
+        background-color: var(--sidebar-list-bg);
+        padding: 20px 0;
+        box-shadow: var(--shadow-primary);
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: inherit;
+        transition: transform 0.2s ease;
+        overflow-y: auto;
+        opacity: 0.95;
+        transform: translateX(-100%);
+    }
+    
+    @media (min-width: 1301px) {
+        .sidebar {
+            transform: translateX(0);
+        }
+    }
+    .sidebar::-webkit-scrollbar {width: 12px;}
+    .sidebar::-webkit-scrollbar-track {
+        background: var(--progress-fill-bg);
+        border-radius: 6px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+        background: var(--theme-pink);
+        border-radius: 6px;
+    }
+    .sidebar::-webkit-scrollbar-thumb:hover {background: var(--btn-show-def-hover);}
+    
+    .sidebar h3, .list-buttons, .order-buttons, .sidebar-footer {padding: 0 20px;}
+    .sidebar h3 {
+        color: var(--text-primary);
+        margin-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+        text-align: center;
+    }
+    .list-buttons, .order-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-sizing: border-box;
+    }
+    .order-buttons {margin-top: auto;}
+    .sidebar-footer {
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid var(--border-color);
+        font-size: 0;
+        height: 1px;
+    }
+
+    .main {
+        position: fixed;
+        top: 80px;
+        bottom: 80px;
+        left: 320px;
+        right: 80px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 5;
+        transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+        overflow: hidden;
+    }
+    .card {
+        width: 100%;
+        max-width: 1200px;
+        height: 100%;
+        background-color: var(--page-bg);
+        border-radius: 15px;
+        padding-top: 30px; /* 上内边距 */
+        padding-right: 5px; /* 右内边距 */
+        padding-bottom: 0px; /* 下内边距 */
+        padding-left: 5px; /* 左内边距 */
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        gap: 20px;
+    }
+    .progress {
+        flex-grow: 1;
+        height: 10px;
+        background-color: var(--progress-fill-bg);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    .progress-fill {
+        height: 100%;
+        background-color: var(--theme-pink);
+        width: 0%;
+        transition: width 0.3s ease;
+    }
+    body.focus-mode .progress {
+        width: 100%;
+        height: 10px;
+        background-color: var(--progress-fill-bg);
+        border-radius: 6px;
+        overflow: hidden;
+    }
+    body.focus-mode .progress-fill {
+        height: 100%;
+        background-color: var(--theme-pink);
+        width: 0%;
+        transition: width 0.2s ease;
+    }
+    .game-status {
+        font-size: clamp(14px, 2vw, 18px);
+        color: var(--text-secondary);
+        font-weight: 500;
+        min-width: 150px;
+        text-align: center;
+    }
+
+    /* 配对游戏区域 */
+    .matching-area {
+        display: flex;
+        flex: 1;
+        gap: 20px;
+        padding: 15px 0 0;
+        overflow-y: hidden;
+        overflow-x: hidden;
+    }
+
+    .word-column,
+    .definition-column {
+        flex: 1;
+        display: grid;
+        grid-template-rows: repeat(4, 1fr);
+        gap: 12px;
+        padding: 0 5px;
+    }
+
+    .word-card,
+    .definition-card {
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 15px 10px;
+        cursor: pointer;
+        transition:
+            transform 0.3s ease,
+            opacity 0.3s ease,
+            background-color 0.3s ease,
+            color 0.3s ease,
+            border-color 0.3s ease,
+            box-shadow 0.3s ease;
+        position: relative;
+        border: 2px solid transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        overflow-wrap: break-word;
+        box-sizing: border-box;
+        overflow: hidden;
+        font-size: clamp(1rem,4vw,1.8rem);
+        word-break: break-word;
+        white-space: normal;
+        max-height: 100%;
+        box-shadow: none;
+    }
+    body.focus-mode .word-card {font-size: clamp(1.4rem,4vw,2.2rem);}
+    body.focus-mode .definition-card {font-size: clamp(1rem,4vw,2rem);}
+
+    .word-card:hover,
+    .definition-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .word-card.selected:hover,
+    .definition-card.selected:hover {
+        transform: translateY(-5px);
+        background-color: var(--theme-pink);
+        opacity: 0.8;
+    }
+    .word-card.selected,
+    .definition-card.selected {
+        transform: translateY(-2px);
+        background-color: var(--theme-pink);
+    }
+    
+    .word-card.mismatch,
+    .definition-card.mismatch {
+        animation: shake 0.1s;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-4px); }
+        50% { transform: translateX(2px); }
+        75% { transform: translateX(-1px); }
+        }
+
+    .word-card.matched,
+    .definition-card.matched {
+        opacity: 0;
+        pointer-events: none;
+        transition:
+            transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            opacity 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            background-color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            border-color 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275),
+            box-shadow 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        animation: match-success 0.4s ease forwards;
+    }
+    @keyframes match-success {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 1; }
+        100% { transform: scale(0.3); opacity: 0; }
+    }
+    
+    .word-column.fade-out,
+    .definition-column.fade-out {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .word-column.fade-in,
+    .definition-column.fade-in {
+        opacity: 1;
+        transform: translateY(0);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    /* 游戏完成提示 */
+    .game-complete {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: var(--card-bg);
+        padding: 40px;
+        border-radius: 15px;
+        box-shadow: var(--shadow-primary);
+        text-align: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+        z-index: 100;
+    }
+    .game-complete.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+    .game-complete h2 {
+        color: var(--theme-pink);
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+        margin-bottom: 20px;
+    }
+    .game-complete p {
+        color: var(--text-secondary);
+        font-size: clamp(1rem, 2vw, 1.2rem);
+        margin-bottom: 30px;
+    }
+
+    .game-actions {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+    }
+
+    /* ============================== 5. 专注模式 ============================== */
+    body.focus-mode .sidebar, 
+    body.focus-mode .btn-menu, 
+    body.focus-mode .btn-theme, 
+    body.focus-mode .btn-list {
+        opacity: 0;
+        pointer-events: none;
+    }
+    .sidebar-container {
+        position: fixed;
+        transition: transform 0.2s ease;
+        backface-visibility: hidden;
+        will-change: transform;
+        z-index: 100;
+    }
+    body.focus-mode .sidebar-container {
+        transform: translateX(-100%);
+    }
+    body.focus-mode .main {
+        top: 40px;
+        bottom: 40px;
+        left: 5px;
+        right: 5px;
+    }
+    body.focus-mode .card {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    /* ============================== 6. 单词列表弹窗 ============================== */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.1);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+    .modal.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    :root.dark .modal {background-color: var(--modal-dark-bg);}
+    .modal-content {
+        background-color: var(--page-bg);
+        border-radius: 15px;
+        box-shadow: var(--shadow-primary);
+        width: 80%;
+        max-width: 1200px;
+        position: fixed;
+        top: 10%;
+        bottom: 10%;
+        padding: 2%;
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2%;
+        padding-bottom: 1.5%;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .modal-title {
+        font-size: clamp(20px, 3vw, 28px);
+        font-weight: bold;
+        color: var(--text-primary);
+        margin: 0;
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .close-list-modal-btn {
+        background: none;
+        border: none;
+        font-size: clamp(24px, 4vw, 30px);
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.2s ease;
+        margin-left: auto;
+    }
+    .close-list-modal-btn:hover {color: var(--text-primary);}
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1%;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5%;
+        align-content: start;
+    }
+    .modal-body::-webkit-scrollbar {width: 12px;}
+    .modal-body::-webkit-scrollbar-track {
+        background: var(--progress-fill-bg);
+        border-radius: 6px;
+    }
+    .modal-body::-webkit-scrollbar-thumb {
+        background: var(--theme-pink);
+        border-radius: 6px;
+    }
+    .modal-body::-webkit-scrollbar-thumb:hover {background: var(--btn-show-def-hover);}
+    
+    .modal-item {
+        background-color: var(--card-bg);
+        border-radius: 15px;
+        padding: 1.5%;
+        transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            background-color 0.2s ease,
+            color 0.2s ease,
+            border-color 0.2s ease,
+            box-shadow 0.2s ease;
+        cursor: default;
+    }
+    .modal-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-primary);
+    }
+    .item-word {
+        font-size: 20px;
+        font-weight: bold;
+        color: var(--text-primary);
+        margin-bottom: 8px;
+    }
+    .item-definition {
+        font-size: 14px;
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+
+    /* 宽度与高度适配由 responsive_layout_system.py 统一注入。 */
+    @media (hover: none) and (pointer: coarse) {
+        .btn {min-height: 44px;}
+        .list-select-btn:hover, .btn-order:hover {
+            font-size: inherit;
+            background-color: var(--sidebar-list-bg);
+            color: var(--text-secondary);
+        }
+        .list-select-btn.active:hover, .btn-order.active:hover {
+            font-size: clamp(18px, 3vw, 22px);
+        }
+    }
+    </style>
+''' + render_responsive_layout_style("matching-game") + '''
+</head>
+<body>
+    <div class="top-toolbar" role="group" aria-label="Page controls">
+        <!-- 移动端侧边栏按钮 -->
+        <button class="btn btn-float btn-menu" id="btn-menu">Select</button>
+        <!-- 主题切换按钮 -->
+        <button class="btn btn-float btn-theme" id="btn-theme">Dark</button>
+        <!-- 专注模式按钮 -->
+        <button class="btn btn-float btn-focus" id="btn-focus">Focus</button>
+    </div>
+    <!-- 单词列表弹窗按钮 -->
+    <button class="btn btn-float btn-list" id="btn-list">Word List</button>
+    
+    <!-- 单词列表弹窗 -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-title">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                        <span>${activeList}</span>
+                        <span>${wordLists[activeList].length} words</span>
+                    </div>
+                </h2>
+            </div>
+            <div class="modal-body" id="modal-body"></div>
+            <div class="sidebar-footer">
+                <div id="modal-footer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 全局搜索框 -->
+    <input type="text" class="search" id="search" placeholder="">
+    
+    <!-- 顶部状态显示 -->
+    <div class="status-top" id="status-top"></div>
+    
+    <!-- 左侧列表选择器 -->
+    <div class="sidebar-container">
+        <div class="sidebar" id="sidebar">
+            <h3>Select Word List</h3>
+            <div class="list-buttons">
+''' + '\n'.join([f'            <button class="btn btn-nav list-select-btn" data-list="{list_name}">{list_name}</button>' for list_name in word_lists.keys()]) + '''
+            </div>
+            <div class="order-buttons">
+                <button class="btn btn-nav btn-order active" data-order="disordered">Disordered</button>
+                <button class="btn btn-nav btn-order" data-order="ordered">Ordered</button>
+            </div>
+            <div class="sidebar-footer">
+                <div id="sidebar-info"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 中央卡片容器 -->
+    <div class="main">
+        <div class="card">
+            <div class="card-header">
+                <div class="progress">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="game-status" id="game-status">Matched: 0 / 0</div>
+            </div>
+            
+            <!-- 游戏完成提示 -->
+            <div class="game-complete" id="game-complete">
+                <h2>Congratulations!</h2>
+                <p>You have completed all matches!</p>
+            </div>
+            
+            <!-- 配对游戏区域 -->
+            <div class="matching-area" id="matching-area">
+                <div class="word-column" id="word-column"></div>
+                <div class="definition-column" id="definition-column"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 底部状态显示 -->
+    <div class="status-bottom" id="status-bottom"></div>
+
+    <script>
+        // 单词列表数据
+        const wordLists = ''' + json.dumps(word_lists, ensure_ascii=False) + ''';
+        const listKeys = Object.keys(wordLists);
+        // 随机选择一个列表作为activeList
+        let activeList = listKeys[Math.floor(Math.random() * listKeys.length)];
+        let currentWords = wordLists[activeList] || [];
+        let isOrdered = false;
+        
+        // DOM元素
+        const themeSwitchBtn = document.getElementById('btn-theme');
+        const mobileSidebarToggle = document.getElementById('btn-menu');
+        const sidebarListSelector = document.getElementById('sidebar');
+        const focusModeBtn = document.getElementById('btn-focus');
+        const sidebarCollapseQuery = window.matchMedia(''' + json.dumps(SIDEBAR_MEDIA_QUERY) + ''');
+        const searchInput = document.getElementById('search');
+        const html = document.documentElement;
+        const pageBottomStatus = document.getElementById('status-bottom');
+        const pageTopStatus = document.getElementById('status-top');
+        
+        // 单词列表弹窗元素
+        const wordListModalBtn = document.getElementById('btn-list');
+        const wordListModal = document.getElementById('modal');
+        const wordListModalContainer = document.getElementById('modal-body');
+        const wordListModalTitle = document.getElementById('modal-title');
+        const wordListModalStats = document.getElementById('modal-footer');
+        
+        // 游戏元素
+        const wordColumn = document.getElementById('word-column');
+        const definitionColumn = document.getElementById('definition-column');
+        const gameStatus = document.getElementById('game-status');
+        const gameComplete = document.getElementById('game-complete');
+        const progressBar = document.getElementById('progress-fill');
+        
+        // 根据随机选择的activeList设置按钮高亮和更新侧边栏信息
+        function initializeActiveList() {
+            // 设置对应列表按钮高亮
+            document.querySelectorAll('.list-select-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.list === activeList);
+            });
+            // 更新侧边栏信息
+            document.getElementById('sidebar-info').textContent = 
+                `${activeList} (${currentWords.length} words)`;
+        }
+        
+        // 初始化页面时设置activeList
+        initializeActiveList();
+        
+        // 游戏状态变量
+        let currentWordPairs = [];
+        let currentRoundWords = [];
+        let selectedWordIndex = null;
+        let selectedDefinitionIndex = null;
+        let matchedPairs = 0;
+        let totalPairs = 0;
+        let currentRound = 0;
+        let currentGroups = [];
+        let currentGroupIndex = 0;
+
+        // ========== 主题切换功能 ==========
+        function initTheme() {
+            if (localStorage.getItem('theme') === 'dark' || 
+                (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                html.classList.add('dark');
+                themeSwitchBtn.textContent = 'Light';
+            } else {
+                html.classList.remove('dark');
+                themeSwitchBtn.textContent = 'Dark';
+            }
+        }
+
+        function calculateTransitionParams(e) {
+            const x = e.clientX;
+            const y = e.clientY;
+            const endRadius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+            html.style.setProperty('--x', x + 'px');
+            html.style.setProperty('--y', y + 'px');
+            html.style.setProperty('--r', endRadius + 'px');
+        }
+
+        themeSwitchBtn.addEventListener('click', (e) => {
+            calculateTransitionParams(e);
+            if (document.startViewTransition) {
+                document.startViewTransition(() => {
+                    const isDark = html.classList.contains('dark');
+                    if (isDark) {
+                        html.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                        themeSwitchBtn.textContent = 'Dark';
+                    } else {
+                        html.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                        themeSwitchBtn.textContent = 'Light';
+                    }
+                });
+            } else {
+                const isDark = html.classList.contains('dark');
+                if (isDark) {
+                    html.classList.remove('dark');
+                    localStorage.setItem('theme', 'light');
+                    themeSwitchBtn.textContent = 'Dark';
+                } else {
+                    html.classList.add('dark');
+                    localStorage.setItem('theme', 'dark');
+                    themeSwitchBtn.textContent = 'Light';
+                }
+            }
+        });
+
+        // ========== 搜索功能 ==========
+        function handleSearch() {
+            if (!searchInput) return;
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const wordItems = document.querySelectorAll('.modal-item');
+            
+            // 重置所有样式
+            wordItems.forEach(item => {
+                item.classList.remove('search-no-match');
+                const wordEl = item.querySelector('.item-word');
+                const defEl = item.querySelector('.item-definition');
+                wordEl.innerHTML = wordEl.textContent;
+                defEl.innerHTML = defEl.textContent;
+            });
+            
+            // 关键词不为空时执行搜索
+            if (searchTerm) {
+                wordItems.forEach(item => {
+                    const wordEl = item.querySelector('.item-word');
+                    const defEl = item.querySelector('.item-definition');
+                    const wordText = wordEl.textContent;
+                    const defText = defEl.textContent;
+                    const hasMatch = wordText.toLowerCase().includes(searchTerm) || 
+                                   defText.toLowerCase().includes(searchTerm);
+                    
+                    if (!hasMatch) {
+                        item.classList.add('search-no-match');
+                    } else {
+                        if (wordText.toLowerCase().includes(searchTerm)) {
+                            wordEl.innerHTML = highlightText(wordText, searchTerm);
+                        }
+                        if (defText.toLowerCase().includes(searchTerm)) {
+                            defEl.innerHTML = highlightText(defText, searchTerm);
+                        }
+                    }
+                });
+            }
+        }
+
+        function highlightText(text, searchTerm) {
+            let result = '';
+            const lowerText = text.toLowerCase();
+            let startIndex = 0;
+            let index;
+            
+            while ((index = lowerText.indexOf(searchTerm, startIndex)) !== -1) {
+                result += text.substring(startIndex, index);
+                result += `<span class="search-match-char">${text.substring(index, index + searchTerm.length)}</span>`;
+                startIndex = index + searchTerm.length;
+            }
+            result += text.substring(startIndex);
+            return result;
+        }
+
+        searchInput.addEventListener('input', () => {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(handleSearch, 200);
+        });
+        if (searchInput) {
+            searchInput.placeholder = 'Search...';
+            searchInput.addEventListener('click', () => {
+                searchInput.placeholder = '';
+            });
+            searchInput.addEventListener('blur', () => {
+                if (!searchInput.value.trim()) {
+                    searchInput.placeholder = 'Search...';
+                }
+            });
+        }
+
+        // ========== 移动端侧边栏 ==========
+        mobileSidebarToggle.addEventListener('click', () => {
+            sidebarListSelector.classList.toggle('mobile-open');
+        });
+
+        document.addEventListener('click', (e) => {
+            if (sidebarCollapseQuery.matches &&
+                !sidebarListSelector.contains(e.target) && 
+                !mobileSidebarToggle.contains(e.target) &&
+                sidebarListSelector.classList.contains('mobile-open')) {
+                sidebarListSelector.classList.remove('mobile-open');
+            }
+        });
+
+        // 仅在统一断点状态改变时清理临时抽屉状态
+        sidebarCollapseQuery.addEventListener('change', (event) => {
+            if (!event.matches) {
+                sidebarListSelector.classList.remove('mobile-open');
+            }
+        });
+
+        // ========== 专注模式 ==========
+        focusModeBtn.addEventListener('click', () => {
+            const isFocus = document.body.classList.toggle('focus-mode');
+            focusModeBtn.textContent = isFocus ? 'Focusing' : 'Focus';
+            focusModeBtn.classList.toggle('active', isFocus);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && document.body.classList.contains('focus-mode')) {
+                document.body.classList.remove('focus-mode');
+                focusModeBtn.textContent = 'Focus';
+                focusModeBtn.classList.remove('active');
+            }
+        });
+
+        // ========== 单词列表弹窗 ==========
+        function openWordTable() {
+            wordListModal.classList.add('active');
+            searchInput.style.display = 'block';
+            updateWordTable();
+        }
+
+        function closeWordTable() {
+            wordListModal.classList.remove('active');
+            searchInput.style.display = 'none';
+            searchInput.value = '';
+            handleSearch();
+        }
+
+        function updateWordTable() {
+            if (!wordListModalContainer) return;
+            
+            wordListModalContainer.innerHTML = '';
+            
+            wordListModalTitle.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; box-sizing: border-box;">
+                    <span>${activeList}</span>
+                    <span>${wordLists[activeList].length} words</span>
+                </div>
+            `;
+            
+            currentWords.forEach(wordObj => {
+                const item = document.createElement('div');
+                item.className = 'modal-item';
+                item.innerHTML = `
+                    <div class="item-word">${wordObj.word}</div>
+                    <div class="item-definition">${wordObj.definition}</div>
+                `;
+                wordListModalContainer.appendChild(item);
+            });
+            
+            wordListModalStats.textContent = '';
+            handleSearch();
+        }
+
+        wordListModalBtn.addEventListener('click', () => {
+            if (wordListModal.classList.contains('active')) {
+                closeWordTable();
+            } else {
+                openWordTable();
+                handleSearch();
+            }
+        });
+
+        wordListModal.addEventListener('click', function(event) {
+            if (event.target === wordListModal) {
+                closeWordTable();
+            }
+        });
+
+        // ========== 进度条更新 ==========
+        function updateProgressBar() {
+            if (totalPairs === 0) {
+                progressBar.style.width = '0%';
+                gameStatus.textContent = 'Matched: 0 / 0';
+                return;
+            }
+            const progress = (matchedPairs / totalPairs) * 100;
+            progressBar.style.width = `${progress}%`;
+            gameStatus.textContent = `Matched: ${matchedPairs} / ${totalPairs}`;
+        }
+
+        // ========== 状态显示更新 ==========
+        function updateStatus() {
+            const statusText = `${activeList} in ${isOrdered ? 'Order' : 'Disorder'}`;
+            pageTopStatus.textContent = statusText;
+            pageBottomStatus.textContent = statusText;
+        }
+
+        // ========== 洗牌算法（内嵌在HTML中，非Python生成） ==========
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // ========== 分组逻辑 ==========
+        function createGroups(wordList) {
+            const groups = [];
+            for (let i = 0; i < wordList.length; i += 4) {
+                groups.push(wordList.slice(i, i + 4));
+            }
+            return groups;
+        }
+
+        // ========== 按词性优先选择意思（核心优化） ==========
+        function getRandomMeaningsByPos(posMeanings, count = 3) {
+            // 1. 按词性分组
+            const posGroups = {};
+            for (const item of posMeanings) {
+                const pos = item.pos;
+                if (!posGroups[pos]) {
+                    posGroups[pos] = [];
+                }
+                posGroups[pos].push(item.meaning);
+            }
+            
+            // 2. 打乱词性组顺序
+            const posGroupKeys = shuffleArray(Object.keys(posGroups));
+            const selected = [];
+            let remainingCount = count;
+            
+            // 3. 优先从不同词性组选择
+            for (const pos of posGroupKeys) {
+                if (remainingCount <= 0) break;
+                const meaningsInPos = posGroups[pos];
+                const randomMean = meaningsInPos[Math.floor(Math.random() * meaningsInPos.length)];
+                selected.push(randomMean);
+                remainingCount--;
+            }
+            
+            // 4. 若未选够，从所有意思中补充
+            if (remainingCount > 0) {
+                const allMeanings = posMeanings.map(item => item.meaning);
+                const shuffledAll = shuffleArray(allMeanings);
+                
+                for (const mean of shuffledAll) {
+                    if (remainingCount <= 0) break;
+                    if (!selected.includes(mean)) {
+                        selected.push(mean);
+                        remainingCount--;
+                    }
+                }
+            }
+            
+            return [...new Set(selected)];
+        }
+
+        // 纯意思选择（兼容用）
+        function getRandomMeanings(meaningsArray, count = 3) {
+            if (!meaningsArray || meaningsArray.length === 0) {
+                return [];
+            }
+            const shuffled = [...meaningsArray];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled.slice(0, Math.min(count, shuffled.length));
+        }
+
+        // ========== 游戏核心逻辑 ==========
+        function initGame(wordList) {
+            currentWordPairs = [...wordList];
+            selectedWordIndex = null;
+            selectedDefinitionIndex = null;
+            matchedPairs = 0;
+            totalPairs = wordList.length;
+            currentRound = 0;
+            currentRoundWords = [];
+            
+            if (!isOrdered) {
+                const shuffledList = shuffleArray(currentWordPairs);
+                currentGroups = createGroups(shuffledList);
+            } else {
+                currentGroups = createGroups(currentWordPairs);
+            }
+            currentGroupIndex = 0;
+            
+            wordColumn.innerHTML = '';
+            definitionColumn.innerHTML = '';
+            gameComplete.classList.remove('visible');
+            
+            startNewGroup();
+            updateProgressBar();
+            updateStatus();
+        }
+        
+        function startNewGroup() {
+            isProcessing = false;
+            
+            wordColumn.classList.add('fade-out');
+            definitionColumn.classList.add('fade-out');
+            
+            setTimeout(() => {
+                wordColumn.innerHTML = '';
+                definitionColumn.innerHTML = '';
+                selectedWordIndex = null;
+                selectedDefinitionIndex = null;
+                
+                wordColumn.classList.remove('fade-out');
+                definitionColumn.classList.remove('fade-out');
+                
+                if (currentGroupIndex >= currentGroups.length) {
+                    gameComplete.classList.add('visible');
+                    return;
+                }
+                
+                const currentGroup = currentGroups[currentGroupIndex];
+                currentRoundWords = [...currentGroup];
+            
+                // 生成单词卡片
+                const shuffledWords = shuffleArray([...currentGroup]);
+                for (let i = 0; i < 4; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'word-card';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    if (i < shuffledWords.length) {
+                        card.innerHTML = '<b>' + shuffledWords[i].word + '</b>';
+                        card.dataset.index = i;
+                        card.dataset.originalIndex = currentGroup.findIndex(w => w.word === shuffledWords[i].word);
+                        card.addEventListener('click', () => handleCardClick('word', i, card));
+                    } else {
+                        card.style.visibility = 'hidden';
+                    }
+                    wordColumn.appendChild(card);
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                        setTimeout(() => {
+                            card.style.transform = '';
+                            card.style.opacity = '';
+                        }, 300);
+                    }, 50 * i);
+                }
+                
+                // 生成释义卡片（使用按词性选择的逻辑）
+                const shuffledDefs = shuffleArray([...currentGroup]);
+                for (let i = 0; i < 4; i++) {
+                    const card = document.createElement('div');
+                    card.className = 'definition-card';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateY(20px)';
+                    if (i < shuffledDefs.length) {
+                        const wordObj = shuffledDefs[i];
+                        let displayText = '';
+                        if (wordObj.pos_meanings && wordObj.pos_meanings.length > 0) {
+                            // 优先使用带词性的意思选择
+                            const selectedMeanings = getRandomMeaningsByPos(wordObj.pos_meanings, 3);
+                            displayText = selectedMeanings.join('，');
+                        } else if (wordObj.meanings && wordObj.meanings.length > 0) {
+                            // 兼容无词性数据的情况
+                            const selectedMeanings = getRandomMeanings(wordObj.meanings, 3);
+                            displayText = selectedMeanings.join('，');
+                        } else {
+                            displayText = wordObj.definition;
+                        }
+                        card.innerHTML = '<b>' + displayText + '</b>';
+                        card.dataset.index = i;
+                        card.dataset.originalIndex = currentGroup.findIndex(w => w.definition === shuffledDefs[i].definition);
+                        card.addEventListener('click', () => handleCardClick('definition', i, card));
+                    } else {
+                        card.style.visibility = 'hidden';
+                    }
+                    definitionColumn.appendChild(card);
+                    
+                    setTimeout(() => {
+                        card.style.opacity = '1';
+                        card.style.transform = 'translateY(0)';
+                        setTimeout(() => {
+                            card.style.transform = '';
+                            card.style.opacity = '';
+                        }, 300);
+                    }, 50 * i);
+                }
+                
+                wordColumn.classList.remove('fade-out');
+                definitionColumn.classList.remove('fade-out');
+                
+                currentRound++;
+            }, 300);
+        }
+
+        let isProcessing = false;
+        
+        function handleCardClick(type, index, card) {
+            if (card.style.visibility === 'hidden' || card.classList.contains('matched')) return;
+            
+            const isCurrentlySelected = card.classList.contains('selected');
+            
+            const sameTypeCards = type === 'word' 
+                ? document.querySelectorAll('.word-card.selected') 
+                : document.querySelectorAll('.definition-card.selected');
+            sameTypeCards.forEach(c => c.classList.remove('selected'));
+            
+            if (!isCurrentlySelected) {
+                card.classList.add('selected');
+                if (type === 'word') selectedWordIndex = index;
+                else selectedDefinitionIndex = index;
+            } else {
+                if (type === 'word') selectedWordIndex = null;
+                else selectedDefinitionIndex = null;
+            }
+            
+            if (selectedWordIndex !== null && selectedDefinitionIndex !== null && !isProcessing) {
+                checkMatch();
+            }
+        }
+
+        function checkMatch() {
+            isProcessing = true;
+            
+            const wordCard = document.querySelectorAll('.word-card')[selectedWordIndex];
+            const defCard = document.querySelectorAll('.definition-card')[selectedDefinitionIndex];
+            
+            const wordOriginalIndex = parseInt(wordCard.dataset.originalIndex);
+            const defOriginalIndex = parseInt(defCard.dataset.originalIndex);
+            const isMatch = wordOriginalIndex === defOriginalIndex;
+            
+            if (isMatch) {
+                wordCard.classList.add('matched');
+                defCard.classList.add('matched');
+                matchedPairs++;
+                updateProgressBar();
+                
+                selectedWordIndex = null;
+                selectedDefinitionIndex = null;
+                
+                const currentGroup = currentGroups[currentGroupIndex];
+                const matchedInGroup = document.querySelectorAll('.word-card.matched').length;
+                
+                setTimeout(() => {
+                    if (matchedInGroup >= currentGroup.length) {
+                        currentGroupIndex++;
+                        startNewGroup();
+                    }
+                    isProcessing = false;
+                }, 100);
+            } else {
+                wordCard.classList.add('mismatch');
+                defCard.classList.add('mismatch');
+                
+                setTimeout(() => {
+                    wordCard.classList.remove('selected', 'mismatch');
+                    defCard.classList.remove('selected', 'mismatch');
+                    selectedWordIndex = null;
+                    selectedDefinitionIndex = null;
+                    isProcessing = false;
+                }, 100); 
+            }
+        }
+
+        // ========== 列表切换和顺序切换 ==========
+        function switchList(listName) {
+            activeList = listName;
+            currentWords = wordLists[activeList] || [];
+            
+            document.querySelectorAll('.list-select-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.list === listName);
+            });
+            
+            document.getElementById('sidebar-info').textContent = 
+                `${activeList} (${currentWords.length} words)`;
+            
+            updateStatus();
+            
+            if (wordListModal.classList.contains('active')) {
+                updateWordTable();
+            }
+            
+            initGame(currentWords);
+        }
+
+        function setOrder(orderType) {
+            isOrdered = orderType === 'ordered';
+            document.querySelectorAll('.btn-order').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.order === orderType);
+            });
+            initGame(currentWords);
+        }
+
+        document.querySelectorAll('.list-select-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchList(btn.dataset.list);
+            });
+        });
+
+        document.querySelectorAll('.btn-order').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setOrder(btn.dataset.order);
+            });
+        });
+
+        // ========== 页面初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initGame(currentWords);
+            updateStatus();
+            console.log('Game initialized successfully!');
+            
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeWordTable();
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar && sidebar.classList.contains('open')) {
+                        toggleSidebar();
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>'''
+    
+    # 输出到 output/ 目录
+    output_path = os.path.join(OUTPUT_DIR, 'Word Matching Game.html')
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    
+    html_abs_path = os.path.abspath(output_path)
+    print(f"HTML file generated: '{html_abs_path}'")
+    
+    # 备份当前Python脚本到项目根目录的 backups 文件夹
+    backup_dir = os.path.join(PROJECT_ROOT, 'backups')
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    backup_path = os.path.join(backup_dir, f'generate_word_matching_game_{timestamp}.py')
+    with open(__file__, 'r', encoding='utf-8') as src, open(backup_path, 'w', encoding='utf-8') as dst:
+        dst.write(src.read())
+    print(f"Script backed up: '{backup_path}'")
+
+# 主函数 - 逻辑完全不变
+def main():
+    word_lists = read_word_files()
+    total = sum(len(lst) for lst in word_lists.values())
+    print(f"Read {total} words from {len(word_lists)} lists:")
+    for list_name, words in word_lists.items():
+        print(f"  - {list_name}: {len(words)} words")
+    
+    generate_html(word_lists)
+    
+    # 自动打开网页
+    try:
+        import webbrowser
+        html_path = os.path.join(OUTPUT_DIR, 'Word Matching Game.html')
+        webbrowser.open(f'file://{os.path.abspath(html_path)}')
+        print("Game opened automatically!")
+    except Exception as e:
+        print(f"Failed to open game: {e}")
+        print(f"Open '{os.path.join(OUTPUT_DIR, 'Word Matching Game.html')}' manually.")
+
+if __name__ == "__main__":
+    main()

@@ -6,97 +6,60 @@
     <title>单词匹配 | Words Match</title>
     <style>
     /* ============================== 1. 基础定义 ============================== */
-    /* 热带日落大胆配色系统 */
     :root {
-        /* 主题色 - 热带日落系 */
-        --theme-primary: #FF6B6B;
-        --theme-secondary: #4ECDC4;
-        --theme-accent: #A855F7;
-        --theme-coral: #FF6B6B;
-        --theme-teal: #4ECDC4;
-        --theme-purple: #A855F7;
-        
-        /* 背景色 - 暖米白系 */
-        --page-bg: #FFF8F0;
-        --card-bg: #FFFFFF;
-        --sidebar-list-bg: #FFE8D6;
-        
-        /* 文本色 - 深色确保对比度 */
-        --text-primary: #1A1A2E;
-        --text-secondary: #4A4A6A;
-        --btn-text: #FFFFFF;
-        
-        /* 进度条 */
-        --progress-fill-bg: #FFE8D6;
-        
-        /* 边框与阴影 */
-        --border-color: #FFD4B8;
-        --shadow-primary: 0 8px 24px rgba(255, 107, 107, 0.15);
-        --shadow-secondary: 0 4px 12px rgba(255, 107, 107, 0.08);
-        
-        /* 滚动条 */
-        --scrollbar-track: #FFF8F0;
-        --scrollbar-thumb: #FFD4B8;
-        --scrollbar-thumb-hover: #FF6B6B;
-        
-        /* 动画变量 */
+        --theme-pink: #ff99cc;
+        --theme-blue: #42a5f5;
+        --modal-dark-bg: rgba(255, 255, 255, 0.1);
+        --page-bg: #fef8ed;
+        --card-bg: white;
+        --sidebar-list-bg: #fef8ed;
+        --text-primary: #333;
+        --text-secondary: #666;
+        --btn-text: #000;
+        --progress-fill-bg: #f1f1f1;
+        --border-color: #ccc;
+        --shadow-primary: 0 6px 12px rgba(0,0,0,0.05);
+        --shadow-secondary: 0 4px 8px rgba(0,0,0,0.02);
+        --scrollbar-track: #f1f1f1;
+        --scrollbar-thumb: #bbb;
+        --scrollbar-thumb-hover: #999;
         --x: 0px;
         --y: 0px;
         --r: 0px;
-        
-        /* 功能按钮 - 热带系 */
-        --btn-show-def-hover: #FF5252;
-        --btn-prev-bg: #FFE8D6;
-        --btn-prev-hover: #FFD4B8;
-        --order-toggle-disordered-hover: #FFD4B8;
-        --order-toggle-ordered: #D4F5F3;
-        --order-toggle-ordered-hover: #A8E6E2;
-        --list-select-btn-active-bg: #FFFFFF;
-        --list-select-btn-active-text: #1A1A2E;
+        --btn-show-def-hover: #ff6699;
+        --btn-prev-bg: #cccccc;
+        --btn-prev-hover: #999999;
+        --order-toggle-disordered-hover: var(--btn-prev-bg);
+        --order-toggle-ordered: #b7e4c7;
+        --order-toggle-ordered-hover: #a7f3d0;
+        --list-select-btn-active-bg: var(--card-bg);
+        --list-select-btn-active-text: #333;
     }
 
-    /* 深色模式 - 深海蓝紫 */
     :root.dark {
-        /* 主题色 - 亮热带色 */
-        --theme-primary: #FF8A8A;
-        --theme-secondary: #6EE7E7;
-        --theme-accent: #C084FC;
-        --theme-coral: #FF8A8A;
-        --theme-teal: #6EE7E7;
-        --theme-purple: #C084FC;
-        
-        --btn-prev-bg: #2D3E52;
-        --btn-prev-hover: #3D4F66;
-        --order-toggle-disordered-hover: #3D4F66;
-        --order-toggle-ordered: #1E4A5F;
-        --order-toggle-ordered-hover: #2A5A73;
-        
-        /* 背景色 - 深海蓝紫 */
-        --page-bg: #0D1B2A;
-        --card-bg: #1B263B;
-        --sidebar-list-bg: #162032;
-        
-        /* 文本色 - 亮色确保对比度 */
-        --text-primary: #F0F4F8;
-        --text-secondary: #B8C5D6;
-        --btn-text: #0D1B2A;
-        
-        /* 进度条 */
-        --progress-fill-bg: #162032;
-        
-        /* 边框与阴影 */
-        --border-color: #2D3E52;
-        --shadow-primary: 0 8px 24px rgba(78, 205, 196, 0.2);
-        --shadow-secondary: 0 4px 12px rgba(78, 205, 196, 0.1);
-        
-        /* 滚动条 */
-        --scrollbar-track: #0D1B2A;
-        --scrollbar-thumb: #2D3E52;
-        --scrollbar-thumb-hover: #4ECDC4;
-        
-        --btn-show-def-hover: #FF6B6B;
-        --list-select-btn-active-bg: #1B263B;
-        --list-select-btn-active-text: #F0F4F8;
+        --theme-pink: #d64187;
+        --btn-prev-bg: #555;
+        --btn-prev-hover: #777;
+        --order-toggle-disordered-hover: var(--btn-prev-bg);
+        --theme-blue: #2563eb;
+        --page-bg: #2d2b3a;
+        --card-bg: #3a384c;
+        --sidebar-list-bg: #2d2b3a;
+        --text-primary: #f0f0f0;
+        --text-secondary: #ddd;
+        --btn-text: white;
+        --progress-fill-bg: #4a485c;
+        --border-color: #555;
+        --shadow-primary: 0 6px 12px rgba(255,255,255,0.05);
+        --shadow-secondary: 0 4px 8px rgba(255,255,255,0.02);
+        --scrollbar-track: #4a485c;
+        --scrollbar-thumb: #666;
+        --scrollbar-thumb-hover: #888;
+        --btn-show-def-hover: #b8326d;
+        --list-select-btn-active-bg: #3a384c;
+        --list-select-btn-active-text: #fff;
+        --order-toggle-ordered: #166534;
+        --order-toggle-ordered-hover: #14532d;
     }
 
     /* 模式切换动画 */
@@ -131,7 +94,7 @@
         left: 50%;
         transform: translateX(-50%);
         z-index: 9999;
-        border: 3px solid var(--theme-coral);
+        border: 3px solid var(--theme-pink);
         border-radius: 15px;
         background: transparent;
         color: var(--text-primary);
@@ -157,7 +120,7 @@
         font-style: italic;
     }
     .search-match-char {
-        color: var(--theme-coral);
+        color: var(--theme-pink);
         font-weight: bold;
         transition:
             transform 0.2s ease,
@@ -213,7 +176,7 @@
         transform: scale(1.05);
     }
     .btn.active {
-        background-color: var(--theme-coral);
+        background-color: var(--theme-pink);
         transition:
             transform 0.2s ease,
             opacity 0.2s ease,
@@ -259,18 +222,18 @@
         box-shadow: var(--shadow-primary);
     }
     .btn-order[data-order="ordered"]:hover {
-        background-color: var(--order-toggle-ordered);
+        background-color: var(--order-toggle-ordered-hover);
     }
     :root.dark .btn-order[data-order="ordered"]:hover {
-        background-color: var(--order-toggle-ordered);
+        background-color: var(--order-toggle-ordered-hover);
     }
     .btn-order.active {
         font-size: clamp(18px, 3vw, 22px);
         color: var(--text-primary);
         box-shadow: var(--shadow-primary);
     }
-    .btn-order[data-order="ordered"].active {background-color: #A7F3D0;}
-    :root.dark .btn-order[data-order="ordered"].active {background-color: #064E3B;}
+    .btn-order[data-order="ordered"].active {background-color: var(--order-toggle-ordered);}
+    :root.dark .btn-order[data-order="ordered"].active {background-color: var(--order-toggle-ordered);}
     .btn-order[data-order="disordered"]:hover {
         background-color: var(--order-toggle-disordered-hover);
     }
@@ -309,7 +272,7 @@
         border-radius: 6px;
     }
     .sidebar::-webkit-scrollbar-thumb {
-        background: var(--theme-coral);
+        background: var(--theme-pink);
         border-radius: 6px;
     }
     .sidebar::-webkit-scrollbar-thumb:hover {background: var(--btn-show-def-hover);}
@@ -388,7 +351,7 @@
     }
     .progress-fill {
         height: 100%;
-        background-color: var(--theme-coral);
+        background-color: var(--theme-pink);
         width: 0%;
         transition: width 0.3s ease;
     }
@@ -401,7 +364,7 @@
     }
     body.focus-mode .progress-fill {
         height: 100%;
-        background-color: var(--theme-coral);
+        background-color: var(--theme-pink);
         width: 0%;
         transition: width 0.2s ease;
     }
@@ -471,13 +434,13 @@
     .word-card.selected:hover,
     .definition-card.selected:hover {
         transform: translateY(-5px);
-        background-color: var(--theme-coral);
+        background-color: var(--theme-pink);
         opacity: 0.8;
     }
     .word-card.selected,
     .definition-card.selected {
         transform: translateY(-2px);
-        background-color: var(--theme-coral);
+        background-color: var(--theme-pink);
     }
     
     .word-card.mismatch,
@@ -545,7 +508,7 @@
         visibility: visible;
     }
     .game-complete h2 {
-        color: var(--theme-coral);
+        color: var(--theme-pink);
         font-size: clamp(1.5rem, 4vw, 2.5rem);
         margin-bottom: 20px;
     }
